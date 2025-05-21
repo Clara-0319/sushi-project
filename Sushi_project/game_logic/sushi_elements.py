@@ -166,8 +166,10 @@ class CuttingBoard:
 
 class PlayerHand:
     def __init__(self):
-        self.held_sushi_type = None  # 例如 "salmon"
-        self.held_drink_type = None  # 例如 "sake"
+        self.held_item_category = None  # "sushi" 或 "drink"
+        self.held_item_key = None       # 例如 "salmon" (寿司类型), "sake" (饮品类型)
+        self.held_item_image = None     # 当前手持物品的 pygame.Surface 对象
+        self.is_holding = False         # 是否手持物品
 
         # 预加载所有完整寿司的图片
         self.complete_sushi_images = {}
@@ -182,58 +184,81 @@ class PlayerHand:
 
     # pickup_sushi, pickup_drink, clear_sushi, clear_drink, clear_all 方法保持不变
 
-    def pickup_sushi(self, sushi_type):
-        if not self.held_sushi_type:
-            self.held_sushi_type = sushi_type
-            print(
-                f"玩家拿起: {SUSHI_TYPES.get(sushi_type, {}).get('name', sushi_type)}")
-            return True
-        print("玩家手上已经有寿司了!")
+    def pickup_sushi(self, sushi_key):
+        if not self.is_holding:  # 确保手上是空的
+            if sushi_key in self.complete_sushi_images:
+                self.held_item_category = "sushi"
+                self.held_item_key = sushi_key
+                self.held_item_image = self.complete_sushi_images[sushi_key]
+                self.is_holding = True
+                print(
+                    f"玩家拿起: {SUSHI_TYPES.get(sushi_key, {}).get('name', sushi_key)}")
+                return True
+            else:
+                print(f"错误：无法找到寿司 '{sushi_key}' 的完整图片。")
+        else:
+            print("玩家手上已经有东西了！")
         return False
 
-    def pickup_drink(self, drink_type):
-        if not self.held_drink_type:
-            self.held_drink_type = drink_type
-            print(
-                f"玩家拿起: {DRINK_TYPES.get(drink_type, {}).get('name', drink_type)}")
-            return True
-        print("玩家手上已经有饮品了!")
+    def pickup_drink(self, drink_key):  # (为后续饮品准备的框架)
+        if not self.is_holding:
+            # if drink_key in self.drink_images: # 假设 drink_images 已加载
+            #     self.held_item_category = "drink"
+            #     self.held_item_key = drink_key
+            #     self.held_item_image = self.drink_images[drink_key]
+            #     self.is_holding = True
+            #     print(f"玩家拿起: {DRINK_TYPES.get(drink_key, {}).get('name', drink_key)}")
+            #     return True
+            print(f"饮品 '{drink_key}' 的拾取逻辑尚未完全实现。")
+        else:
+            print("玩家手上已经有东西了！")
         return False
 
-    def clear_sushi(self): self.held_sushi_type = None
-    def clear_drink(self): self.held_drink_type = None
+    def drop_item(self):
+        """
+        放下手中的物品。返回放下物品的类别和键名，以便后续处理（如放在桌上）。
+        """
+        if self.is_holding:
+            category = self.held_item_category
+            key = self.held_item_key
+            print(f"玩家放下: {key} ({category})")
 
-    def clear_all(self):
-        self.held_sushi_type = None
-        self.held_drink_type = None
+            self.held_item_category = None
+            self.held_item_key = None
+            self.held_item_image = None
+            self.is_holding = False
+            return category, key
+        return None, None
 
-    def draw(self, surface, font, position):
-        # 绘制手持的寿司图片
-        if self.held_sushi_type and self.held_sushi_type in self.complete_sushi_images:
-            sushi_img = self.complete_sushi_images[self.held_sushi_type]
-            # 图片绘制位置可以基于传入的 position，或者固定在屏幕某处
-            # 这里简单地在 position 绘制，可能需要调整图片大小或 position
-            surface.blit(sushi_img, position)
-            # 如果还想显示文字，可以在图片旁边或下方绘制
-            # text_s = f"寿司: {SUSHI_TYPES[self.held_sushi_type]['name']}"
-            # text_surf_s = font.render(text_s, True, BLACK)
-            # surface.blit(text_surf_s, (position[0] + sushi_img.get_width() + 5, position[1]))
+    def get_held_item_info(self):
+        """返回当前手持物品的信息，如果手持了物品的话"""
+        if self.is_holding:
+            return self.held_item_category, self.held_item_key, self.held_item_image
+        return None, None, None
 
-        # (之后绘制手持的饮品图片)
+    def draw(self, surface, mouse_pos, font_for_hud=None, hud_position=None):
+        """
+        如果手上有物品，则在鼠标位置绘制该物品。
+        可选：在固定HUD位置显示文字状态。
+        """
+        if self.is_holding and self.held_item_image:
+            # 让图片的中心点跟随鼠标
+            img_rect = self.held_item_image.get_rect(center=mouse_pos)
+            surface.blit(self.held_item_image, img_rect)
 
-        # 如果什么都没拿，或者只想显示文字状态，可以绘制文字
-        elif not self.held_sushi_type and not self.held_drink_type:
-            text_surf = font.render("双手空空", True, BLACK)
-            text_rect = text_surf.get_rect(topleft=position)
+        # (可选) 始终在固定位置显示手持状态的文字 (即使图片跟随鼠标)
+        if font_for_hud and hud_position:
+            message = "双手空空"
+            if self.is_holding and self.held_item_key:
+                item_name = ""
+                if self.held_item_category == "sushi":
+                    item_name = SUSHI_TYPES.get(self.held_item_key, {}).get(
+                        'name', self.held_item_key)
+                elif self.held_item_category == "drink":
+                    item_name = DRINK_TYPES.get(self.held_item_key, {}).get(
+                        'name', self.held_item_key)
+                message = f"手持: {item_name}"
+
+            text_surf = font_for_hud.render(message, True, BLACK)
+            text_rect = text_surf.get_rect(topleft=hud_position)
             surface.blit(text_surf, text_rect)
-
-        # 如果只想显示一个总的状态文本（可以替代上面的图片绘制逻辑，如果图片显示复杂）
-        # s_name = SUSHI_TYPES.get(self.held_sushi_type, {}).get("name", "") if self.held_sushi_type else ""
-        # d_name = DRINK_TYPES.get(self.held_drink_type, {}).get("name", "") if self.held_drink_type else ""
-        # parts = []
-        # if s_name: parts.append(f"寿司: {s_name}")
-        # if d_name: parts.append(f"饮品: {d_name}")
-        # display_message = "手持: " + ", ".join(parts) if parts else "双手空空"
-        # text_surf = font.render(display_message, True, BLACK)
-        # text_rect = text_surf.get_rect(topleft=position)
-        # surface.blit(text_surf, text_rect)
