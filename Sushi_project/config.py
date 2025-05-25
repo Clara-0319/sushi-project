@@ -11,6 +11,7 @@ FPS = 60
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
+GREEN = (0, 255, 0)  # Added GREEN for happy order
 # ... 其他颜色 ...
 LIGHT_BLUE = (173, 216, 230)  # 米饭占位符颜色 (可能不再需要)
 SALMON_PINK = (250, 128, 114)  # 三文鱼占位符颜色 (可能不再需要)
@@ -23,6 +24,8 @@ IMAGES_DIR = os.path.join(ASSETS_DIR, "images")
 BACKGROUND_IMAGES_DIR = os.path.join(IMAGES_DIR, "background")
 UI_IMAGES_DIR = os.path.join(IMAGES_DIR, "ui")  # 所有UI和物品小图都放这里
 SUSHI_IMAGES_DIR = os.path.join(IMAGES_DIR, "sushi")
+DRINK_IMAGES_DIR = os.path.join(IMAGES_DIR, "drinks")
+CUSTOMER_IMAGES_DIR = os.path.join(IMAGES_DIR, "customer")  # <--- 新增顾客图片目录
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
 
 # --- 背景和通用UI图片文件名 ---
@@ -53,11 +56,23 @@ SCALLOP_SUSHI_IMG_FILENAME = "scallop_sushi.png"  # 完成的扇贝寿司
 SALMON_SUSHI_IMG_FILENAME = "salmon_sushi.png"   # 完成的三文鱼寿司
 TUNA_SUSHI_IMG_FILENAME = "tuna_sushi.png"       # 完成的金枪鱼寿司
 
+# --- Customer and Order Image Filenames ---
+CUSTOMER_WAITING_IMG_FILENAME = "customer_waiting.gif"
+CUSTOMER_HAPPY_IMG_FILENAME = "customer_happy.gif"
+CUSTOMER_ANGRY_IMG_FILENAME = "customer_angry.gif"
+ORDER_BUBBLE_IMG_FILENAME = "order_bubble.png"
+
+# --- Drink Image Filenames (add these if you have them) ---
+SAKE_IMG_FILENAME = "sake.png"  # 示例，请替换为你的文件名
+BEER_IMG_FILENAME = "beer.png"
+MISO_SOUP_IMG_FILENAME = "miso_soup.png"
+
 
 # --- 字体文件名和大小 ---
 CUSTOM_FONT_FILENAME = "s.ttf"
 DEFAULT_FONT_SIZE = 28
 LARGE_FONT_SIZE = 40
+SMALL_FONT_SIZE = 18  # For order text
 
 # --- 游戏状态常量 ---
 STATE_START_SCREEN = "start_screen"
@@ -84,9 +99,9 @@ SUSHI_TYPES = {
 }
 
 DRINK_TYPES = {  # 饮品暂时不变，后续添加图片
-    "sake": {"name": "清酒", "color": (220, 220, 220)},
-    "beer": {"name": "啤酒", "color": (255, 165, 0)},
-    "miso_soup": {"name": "味增汤", "color": (139, 69, 19)}
+    "sake": {"name": "清酒", "image_file": SAKE_IMG_FILENAME},
+    "beer": {"name": "啤酒", "image_file": BEER_IMG_FILENAME},
+    "miso_soup": {"name": "味增汤", "image_file": MISO_SOUP_IMG_FILENAME}
 }
 
 # --- 游戏元素尺寸和位置 (这些可能需要根据你的图片实际大小进行调整) ---
@@ -111,4 +126,36 @@ CUTTING_BOARD_POS = (SCREEN_WIDTH // 2-CUTTING_BOARD_IMG_WIDTH // 2, 510)
 # 饭团和配料在菜板上的显示大小（增大）
 RICE_BALL_ON_BOARD_SIZE = (80, 67)
 TOPPING_ON_BOARD_SIZE = (80, 67)
+
+# --- 顾客区定义 ---
+NUM_CUSTOMER_SPOTS = 3
+CUSTOMER_SPOT_WIDTH = 150  # 每个顾客“桌子”的宽度
+CUSTOMER_SPOT_HEIGHT = 100  # 每个顾客“桌子”的高度
+CUSTOMER_SPOT_COLOR = (0, 0, 255, 100)  # 半透明蓝色作为占位符 (R, G, B, Alpha)
+
+# 顾客区位置 (需要根据你的屏幕布局仔细调整)
+# 假设它们在屏幕上半部分，水平排列
+CUSTOMER_AREA_Y_OFFSET = 300  # 离屏幕顶部的距离
+CUSTOMER_AREA_PADDING = 180   # 顾客区之间的间隔以及与屏幕边缘的间隔
+
+start_x_customer_area=100
+# 例如，对于3个顾客区，它们的位置可能是：
+CUSTOMER_SPOT_POSITIONS = [
+    (start_x_customer_area, CUSTOMER_AREA_Y_OFFSET),
+    (start_x_customer_area + CUSTOMER_SPOT_WIDTH +
+     CUSTOMER_AREA_PADDING, CUSTOMER_AREA_Y_OFFSET),
+    (start_x_customer_area + 2 * (CUSTOMER_SPOT_WIDTH +
+     CUSTOMER_AREA_PADDING), CUSTOMER_AREA_Y_OFFSET)
+]
+
+# --- Customer Visuals & Order Bubble ---
+CUSTOMER_IMAGE_SIZE = (120, 180)  # 顾客图片显示大小 (需要根据你的GIF调整)
+# 新增：顾客图片底部相对于其桌子区顶部的垂直偏移量
+# 正值表示顾客图片的底部在桌子区顶部之上多少像素 (即两者间的空隙)
+# 负值表示顾客图片的底部会进入桌子区 (重叠)
+CUSTOMER_IMAGE_BOTTOM_Y_OFFSET_ABOVE_TABLE = -10  # 例如，顾客图片的脚部比桌子顶部高10像素
+ORDER_BUBBLE_SIZE = (150, 120)   # 订单气泡图片显示大小
+ORDER_ITEM_IMAGE_SIZE = (50, 50)  # 订单中寿司/饮品小图的显示大小
+ORDER_BUBBLE_OFFSET_X = 30     # 气泡相对于顾客位置的X偏移
+ORDER_BUBBLE_OFFSET_Y = -ORDER_BUBBLE_SIZE[1]  # 气泡在顾客头顶上方一点
 
