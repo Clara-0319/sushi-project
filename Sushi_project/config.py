@@ -159,3 +159,28 @@ ORDER_ITEM_IMAGE_SIZE = (50, 50)  # 订单中寿司/饮品小图的显示大小
 ORDER_BUBBLE_OFFSET_X = 30     # 气泡相对于顾客位置的X偏移
 ORDER_BUBBLE_OFFSET_Y = -ORDER_BUBBLE_SIZE[1]  # 气泡在顾客头顶上方一点
 
+# --- 饮品机图片文件名 (假设你有点菜板类似的交互元素) ---
+# 如果饮品机就是饮品本身图标的放大版，或者有特定交互区域，可以复用或新增
+SAKE_DISPENSER_IMG_FILENAME = "sake_dispenser.png" # 清酒机图片
+BEER_TAP_IMG_FILENAME = "beer_tap.png"            # 啤酒龙头图片
+MISO_DISPENSER_IMG_FILENAME = "miso_dispenser.png"  # 味增汤锅图片
+
+# --- 饮品机位置 (根据你的界面布局调整) ---
+# 假设它们在食材容器的右边
+INGREDIENT_AREA_Y_DRINKS = 520 # 可以和食材在同一水平线
+DRINK_DISPENSER_WIDTH = 130  # 假设和食材容器一样大小
+DRINK_DISPENSER_HEIGHT = 130
+
+SAKE_DISPENSER_POS = (0, INGREDIENT_AREA_Y_DRINKS)
+BEER_TAP_POS = (SAKE_DISPENSER_POS[0] + DRINK_DISPENSER_WIDTH + 10, INGREDIENT_AREA_Y_DRINKS)
+MISO_DISPENSER_POS = (BEER_TAP_POS[0] + DRINK_DISPENSER_WIDTH + 10, INGREDIENT_AREA_Y_DRINKS)
+
+# --- 饮品定义 (确保 image_file 指向的是饮品本身的图片，而不是饮品机的) ---
+DRINK_TYPES = {
+    "sake": {"name": "清酒", "image_file": SAKE_IMG_FILENAME, "dispenser_img": SAKE_DISPENSER_IMG_FILENAME, "dispenser_pos": SAKE_DISPENSER_POS},
+    "beer": {"name": "啤酒", "image_file": BEER_IMG_FILENAME, "dispenser_img": BEER_TAP_IMG_FILENAME, "dispenser_pos": BEER_TAP_POS},
+    "miso_soup": {"name": "味增汤", "image_file": MISO_SOUP_IMG_FILENAME, "dispenser_img": MISO_DISPENSER_IMG_FILENAME, "dispenser_pos": MISO_DISPENSER_POS}
+}
+
+# --- 玩家手持物品的图片大小 (可以根据需要调整) ---
+HELD_ITEM_IMAGE_SIZE = (70, 70) # 举例，你可以根据实际图片调整
