@@ -216,6 +216,8 @@ def reset_game_state():
         customer.sushi_received_key = None
         customer.drink_received_key = None
         customer.departure_timer_start = None
+        customer.current_animation_frame_index = 0  # 确保动画索引重置
+        customer.current_image = None  # 清空当前图像
         customer.order_timer_start_ticks = None  # 重置订单计时器
         customer.order_remaining_seconds = ORDER_DURATION_SECONDS
         last_customer_spawn_time[i] = current_ticks - \
