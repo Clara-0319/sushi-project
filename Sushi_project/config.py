@@ -15,7 +15,7 @@ GREEN = (0, 255, 0)  # Added GREEN for happy order
 # ... 其他颜色 ...
 LIGHT_BLUE = (173, 216, 230)  # 米饭占位符颜色 (可能不再需要)
 SALMON_PINK = (250, 128, 114)  # 三文鱼占位符颜色 (可能不再需要)
-
+GOLD = (255, 215, 0) # 用于小费文本颜色
 
 # --- 资源路径 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -32,6 +32,11 @@ FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
 START_BG_IMG = "start_bg.png"
 RESTAURANT_BG_IMG = "restaurant_bg.png"
 START_BUTTON_IMG = "start_button.png"
+TIMES_UP_IMG_FILENAME = "time's_up.png"  # 新增：时间到图片
+TIMER_ICON_FILENAME = "clock.png"       # 新增：时钟图标
+TIP_ICON_FILENAME = "tip_icon.png"         # 新增：小费图标
+WIN_IMG_FILENAME = "win.png"               # 新增：胜利图片
+LOSE_IMG_FILENAME = "lose.png"             # 新增：失败图片
 
 # --- 食材容器和工作台图片文件名 ---
 # 请确保这些文件名与你放在 assets/images/ui/ 目录下的文件名完全一致
@@ -72,11 +77,21 @@ MISO_SOUP_IMG_FILENAME = "miso_soup.png"
 CUSTOM_FONT_FILENAME = "s.ttf"
 DEFAULT_FONT_SIZE = 28
 LARGE_FONT_SIZE = 40
-SMALL_FONT_SIZE = 18  # For order text
+SMALL_FONT_SIZE = 22  # For order text
 
 # --- 游戏状态常量 ---
 STATE_START_SCREEN = "start_screen"
 STATE_GAME_RUNNING = "game_running"
+STATE_GAME_OVER = "game_over"  # 新增：游戏结束状态
+
+# --- 游戏参数 ---
+GAME_DURATION_SECONDS = 30  # 游戏总时长，例如3分钟
+
+# +++ 小费系统参数 +++
+TIP_PERFECT_ORDER = 20       # 订单全对的小费
+TIP_PARTIAL_ORDER = 10       # 订单对一半的小费
+TIP_WRONG_ORDER = 0          # 订单全错的小费 (或可以设为负数作为惩罚)
+TARGET_TIPS = 500            # 目标小费金额
 
 # --- 食材和饮品定义 (更新以包含图片信息) ---
 # RICE 定义现在也包含其在菜板上的图片
@@ -167,7 +182,7 @@ MISO_DISPENSER_IMG_FILENAME = "miso_dispenser.png"  # 味增汤锅图片
 
 # --- 饮品机位置 (根据你的界面布局调整) ---
 # 假设它们在食材容器的右边
-INGREDIENT_AREA_Y_DRINKS = 520 # 可以和食材在同一水平线
+INGREDIENT_AREA_Y_DRINKS = 500 # 可以和食材在同一水平线
 DRINK_DISPENSER_WIDTH = 130  # 假设和食材容器一样大小
 DRINK_DISPENSER_HEIGHT = 130
 
@@ -184,3 +199,35 @@ DRINK_TYPES = {
 
 # --- 玩家手持物品的图片大小 (可以根据需要调整) ---
 HELD_ITEM_IMAGE_SIZE = (70, 70) # 举例，你可以根据实际图片调整
+
+# --- Customer Visuals & Order Bubble ---
+# ... (其他配置保持不变) ...
+CUSTOMER_HAPPY_LEAVE_DELAY_MS = 3000  # 顾客开心后停留3秒
+CUSTOMER_ANGRY_LEAVE_DELAY_MS = 2000  # 顾客生气后停留2秒
+
+# 新顾客生成延迟 (毫秒)
+NEW_CUSTOMER_SPAWN_DELAY_MIN_MS = 2000  # 最小延迟2秒
+NEW_CUSTOMER_SPAWN_DELAY_MAX_MS = 6000  # 最大延迟6秒
+
+# (可选) 为顾客桌子不同状态定义颜色
+CUSTOMER_SPOT_COLOR_EMPTY = (100, 100, 100, 100)  # 空位颜色
+CUSTOMER_SPOT_COLOR_WAITING = (0, 0, 255, 100)  # 等待颜色
+CUSTOMER_SPOT_COLOR_HAPPY = (0, 255, 0, 100)    # 开心颜色
+CUSTOMER_SPOT_COLOR_ANGRY = (255, 0, 0, 100)    # 生气颜色
+CUSTOMER_SPOT_COLOR_DEFAULT = (200, 200, 200, 100)  # 默认颜色
+
+# --- 计时器 UI ---
+TIMER_ICON_POS = (10, 15)  # 左上角
+TIMER_ICON_SIZE = (80, 80)  # 时钟图标大小
+TIMER_TEXT_OFFSET_X = 10  # 文本在图标右侧的偏移
+TIMES_UP_IMAGE_SIZE = (600,600 )  # 时间到图片的大小 (根据你的图片调整)
+
+# +++ 小费 UI +++
+TIP_ICON_POS = (SCREEN_WIDTH - 150, 20)  # 右上角，预留空间给文字
+TIP_ICON_SIZE = (40, 40)
+TIP_TEXT_OFFSET_X = 10
+
+# --- 游戏结束界面图片 ---
+TIMES_UP_IMAGE_SIZE = (400, 200)
+WIN_LOSE_IMAGE_SIZE = (300, 150)  # 胜利/失败图片的大小 (根据你的图片调整)
+TIMES_UP_DISPLAY_DURATION_MS = 2000  # "Time's Up" 显示时长 (毫秒)
