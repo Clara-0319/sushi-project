@@ -33,7 +33,8 @@ START_BG_IMG = "start_bg.png"
 RESTAURANT_BG_IMG = "restaurant_bg.png"
 START_BUTTON_IMG = "start_button.png"
 TIMES_UP_IMG_FILENAME = "time's_up.png"  # 新增：时间到图片
-TIMER_ICON_FILENAME = "clock.png"       # 新增：时钟图标
+GLOBAL_TIMER_ICON_FILENAME = "clock.png"       # 全局游戏时钟图标
+ORDER_TIMER_ICON_FILENAME = "timer_icon.png"   # 顾客订单计时器图标
 TIP_ICON_FILENAME = "tip_icon.png"         # 新增：小费图标
 WIN_IMG_FILENAME = "win.png"               # 新增：胜利图片
 LOSE_IMG_FILENAME = "lose.png"             # 新增：失败图片
@@ -85,13 +86,13 @@ STATE_GAME_RUNNING = "game_running"
 STATE_GAME_OVER = "game_over"  # 新增：游戏结束状态
 
 # --- 游戏参数 ---
-GAME_DURATION_SECONDS = 30  # 游戏总时长
+GAME_DURATION_SECONDS = 90  # 游戏总时长
 
 # +++ 小费系统参数 +++
 TIP_PERFECT_ORDER = 20       # 订单全对的小费
 TIP_PARTIAL_ORDER = 10       # 订单对一半的小费
 TIP_WRONG_ORDER = 0          # 订单全错的小费 (或可以设为负数作为惩罚)
-TARGET_TIPS = 500            # 目标小费金额
+TARGET_TIPS = 300            # 目标小费金额
 
 # --- 食材和饮品定义 (更新以包含图片信息) ---
 # RICE 定义现在也包含其在菜板上的图片
@@ -230,4 +231,12 @@ TIP_TEXT_OFFSET_X = 10
 TIMES_UP_IMAGE_SIZE = (400, 400)
 WIN_LOSE_IMAGE_SIZE = (400, 400)  # 胜利/失败图片的大小 (根据你的图片调整)
 TIMES_UP_DISPLAY_DURATION_MS = 2000  # "Time's Up" 显示时长 (毫秒)
+
+# +++ 新增订单计时器相关配置 +++
+ORDER_DURATION_SECONDS = 10  # 每个订单的默认持续时间（秒）
+ORDER_TIMER_ICON_SIZE = (30, 30)  # 订单计时器图标大小
+ORDER_TIMER_OFFSET_X = 5  # 订单计时器相对于订单气泡的位置X (可以调整)
+ORDER_TIMER_OFFSET_Y = ORDER_BUBBLE_SIZE[1] + 5  # 订单计时器在订单气泡下方的位置Y (可以调整)
+ORDER_TIMER_TEXT_COLOR = RED  # 订单倒计时文本颜色
+
 
