@@ -15,7 +15,7 @@ GREEN = (0, 255, 0)  # Added GREEN for happy order
 # ... 其他颜色 ...
 LIGHT_BLUE = (173, 216, 230)  # 米饭占位符颜色 (可能不再需要)
 SALMON_PINK = (250, 128, 114)  # 三文鱼占位符颜色 (可能不再需要)
-GOLD = (255, 215, 0) # 用于小费文本颜色
+GOLD = (0, 0, 0) # 用于小费文本颜色
 
 # --- 资源路径 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -85,7 +85,7 @@ STATE_GAME_RUNNING = "game_running"
 STATE_GAME_OVER = "game_over"  # 新增：游戏结束状态
 
 # --- 游戏参数 ---
-GAME_DURATION_SECONDS = 30  # 游戏总时长，例如3分钟
+GAME_DURATION_SECONDS = 30  # 游戏总时长
 
 # +++ 小费系统参数 +++
 TIP_PERFECT_ORDER = 20       # 订单全对的小费
@@ -180,8 +180,7 @@ SAKE_DISPENSER_IMG_FILENAME = "sake_dispenser.png" # 清酒机图片
 BEER_TAP_IMG_FILENAME = "beer_tap.png"            # 啤酒龙头图片
 MISO_DISPENSER_IMG_FILENAME = "miso_dispenser.png"  # 味增汤锅图片
 
-# --- 饮品机位置 (根据你的界面布局调整) ---
-# 假设它们在食材容器的右边
+# --- 饮品机位置 ---
 INGREDIENT_AREA_Y_DRINKS = 500 # 可以和食材在同一水平线
 DRINK_DISPENSER_WIDTH = 130  # 假设和食材容器一样大小
 DRINK_DISPENSER_HEIGHT = 130
@@ -228,6 +227,7 @@ TIP_ICON_SIZE = (40, 40)
 TIP_TEXT_OFFSET_X = 10
 
 # --- 游戏结束界面图片 ---
-TIMES_UP_IMAGE_SIZE = (400, 200)
-WIN_LOSE_IMAGE_SIZE = (300, 150)  # 胜利/失败图片的大小 (根据你的图片调整)
+TIMES_UP_IMAGE_SIZE = (400, 400)
+WIN_LOSE_IMAGE_SIZE = (400, 400)  # 胜利/失败图片的大小 (根据你的图片调整)
 TIMES_UP_DISPLAY_DURATION_MS = 2000  # "Time's Up" 显示时长 (毫秒)
+
