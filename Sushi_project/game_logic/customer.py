@@ -3,6 +3,9 @@
 import pygame
 import random
 import os
+# 从 sushi_elements.py 导入新的 load_gif_frames 函数
+# 或者直接从 game_logic.sushi_elements 导入
+from .sushi_elements import load_gif_frames
 from config import (
     SUSHI_TYPES, DRINK_TYPES, CUSTOMER_IMAGES_DIR, UI_IMAGES_DIR, DRINK_IMAGES_DIR, # 添加 DRINK_IMAGES_DIR
     CUSTOMER_WAITING_IMG_FILENAME, CUSTOMER_HAPPY_IMG_FILENAME, CUSTOMER_ANGRY_IMG_FILENAME,
@@ -13,6 +16,7 @@ from config import (
     TIP_PERFECT_ORDER, TIP_PARTIAL_ORDER, TIP_WRONG_ORDER,  # 导入小费常量
     ORDER_DURATION_SECONDS, ORDER_TIMER_ICON_SIZE,  # 新增导入
     ORDER_TIMER_OFFSET_X, ORDER_TIMER_OFFSET_Y, ORDER_TIMER_TEXT_COLOR,  # 新增导入
+    CUSTOMER_ANIMATION_FRAME_DURATION  # 导入动画帧时长
 )
 
 # 确保 load_scaled_image 在这里可用 (如果它不在 utils.py 中)
@@ -36,40 +40,39 @@ def load_scaled_image(image_filename, size=None, directory=UI_IMAGES_DIR):
 
 
 class Customer:
-    def __init__(self, spot_index, table_spot_rect, preloaded_sushi_images, preloaded_drink_images, timer_icon_surface):  # 添加 timer_icon_surface
+    def __init__(self, spot_index, table_spot_rect, preloaded_sushi_images, preloaded_drink_images, order_timer_icon_surface):
         self.spot_index = spot_index
         self.rect = pygame.Rect((0, 0), CUSTOMER_IMAGE_SIZE)
         self.rect.midbottom = (table_spot_rect.centerx,
                                table_spot_rect.top - CUSTOMER_IMAGE_BOTTOM_Y_OFFSET_ABOVE_TABLE)
 
-        self.state = "empty"  # 初始状态可以是 "empty"，由 main.py 决定何时生成第一个订单
-        self.order = None      # {"sushi": "sushi_key", "drink": "drink_key"}
+        self.state = "empty"
+        self.order = None
         self.order_fulfilled = False
-
-        # +++ 新增：记录已收到的物品 +++
         self.sushi_received_key = None
         self.drink_received_key = None
-
-        self.departure_timer_start = None # 记录开始计时离开的时间点
-        self.leave_delay = 0 # 离开前的延迟时间
-
-        # +++ 订单计时器相关属性 +++
-        self.order_timer_start_ticks = None  # 订单开始计时的时间戳
+        self.departure_timer_start = None
+        self.leave_delay = 0
+        self.order_timer_start_ticks = None
         self.order_remaining_seconds = ORDER_DURATION_SECONDS
-        self.timer_icon_image = timer_icon_surface  # 从 main.py 传入预加载的计时器图标
+        self.timer_icon_image = order_timer_icon_surface  # 用于订单倒计时
 
-        self.images = {
-            "waiting": load_scaled_image(CUSTOMER_WAITING_IMG_FILENAME, CUSTOMER_IMAGE_SIZE, directory=CUSTOMER_IMAGES_DIR),
-            "happy": load_scaled_image(CUSTOMER_HAPPY_IMG_FILENAME, CUSTOMER_IMAGE_SIZE, directory=CUSTOMER_IMAGES_DIR),
-            "angry": load_scaled_image(CUSTOMER_ANGRY_IMG_FILENAME, CUSTOMER_IMAGE_SIZE, directory=CUSTOMER_IMAGES_DIR),
+        # +++ 动画相关属性 +++
+        self.animation_frames = {  # 存储每个状态的动画帧列表
+            "waiting": load_gif_frames(CUSTOMER_WAITING_IMG_FILENAME, CUSTOMER_IMAGE_SIZE, directory=CUSTOMER_IMAGES_DIR),
+            "happy": load_gif_frames(CUSTOMER_HAPPY_IMG_FILENAME, CUSTOMER_IMAGE_SIZE, directory=CUSTOMER_IMAGES_DIR),
+            "angry": load_gif_frames(CUSTOMER_ANGRY_IMG_FILENAME, CUSTOMER_IMAGE_SIZE, directory=CUSTOMER_IMAGES_DIR),
         }
-        self.current_image = None # 初始为空，在 generate_order 时设置
+        self.current_animation_frame_index = 0
+        self.last_animation_update_time = 0
+        self.animation_frame_duration = CUSTOMER_ANIMATION_FRAME_DURATION
+        self.current_image = None  # 将由动画逻辑更新
 
-        self.order_bubble_image = load_scaled_image(
+        self.order_bubble_image = load_scaled_image(  # 这个是静态图
             ORDER_BUBBLE_IMG_FILENAME, ORDER_BUBBLE_SIZE, directory=UI_IMAGES_DIR)
 
-        self.sushi_item_images = preloaded_sushi_images # 用于订单气泡显示
-        self.drink_item_images = preloaded_drink_images # 用于订单气泡显示
+        self.sushi_item_images = preloaded_sushi_images
+        self.drink_item_images = preloaded_drink_images
 
         try:
             from config import FONTS_DIR, CUSTOM_FONT_FILENAME
@@ -80,44 +83,64 @@ class Customer:
         except Exception:
             self.small_font = pygame.font.SysFont(None, SMALL_FONT_SIZE)
 
-        # 不在初始化时立即生成订单，由 main.py 控制生成时机
-        # self.generate_order()
-
     def generate_order(self):
-        if self.state == "empty": # 只有空位时才能生成新订单
+        if self.state == "empty":
+            # ... (订单生成逻辑不变) ...
             sushi_key = random.choice(list(SUSHI_TYPES.keys()))
             drink_key = random.choice(list(DRINK_TYPES.keys()))
             self.order = {"sushi": sushi_key, "drink": drink_key}
             self.order_fulfilled = False
             self.sushi_received_key = None
             self.drink_received_key = None
-            self.departure_timer_start = None # 重置离开计时器
-            self.set_state("waiting") # 新订单，进入等待状态
-            # +++ 启动订单计时器 +++
+            self.departure_timer_start = None
+            self.set_state("waiting")  # 这会触发动画的重置
             self.order_timer_start_ticks = pygame.time.get_ticks()
             self.order_remaining_seconds = ORDER_DURATION_SECONDS
-            print(
-                f"顾客 {self.spot_index+1} 点单: {SUSHI_TYPES[sushi_key]['name']} 和 {DRINK_TYPES[drink_key]['name']}. 时限: {self.order_remaining_seconds}s")
+            # print(f"顾客 {self.spot_index+1} 点单: {SUSHI_TYPES[sushi_key]['name']} 和 {DRINK_TYPES[drink_key]['name']}. 时限: {self.order_remaining_seconds}s")
             return True
         return False
 
     def set_state(self, new_state):
         previous_state = self.state
         self.state = new_state
-        self.current_image = self.images.get(self.state)
+
+        # 重置动画帧索引，以便新状态的动画从头开始
+        self.current_animation_frame_index = 0
+        self.last_animation_update_time = pygame.time.get_ticks()  # 重置动画更新时间
+
+        # 更新当前图像为新状态的第一帧 (如果动画帧存在)
+        if self.state in self.animation_frames and self.animation_frames[self.state]:
+            self.current_image = self.animation_frames[self.state][0]
+        else:
+            self.current_image = None  # 对于 "empty" 或其他无动画状态
 
         if self.state == "happy":
             self.departure_timer_start = pygame.time.get_ticks()
             self.leave_delay = CUSTOMER_HAPPY_LEAVE_DELAY_MS
-            self.order_timer_start_ticks = None  # 订单完成，停止订单计时器
+            self.order_timer_start_ticks = None
         elif self.state == "angry":
             self.departure_timer_start = pygame.time.get_ticks()
             self.leave_delay = CUSTOMER_ANGRY_LEAVE_DELAY_MS
-            self.order_timer_start_ticks = None  # 订单失败（或超时），停止订单计时器
-
-        # 如果从 waiting 状态因为超时变为 angry，也需要停止订单计时器
-        if previous_state == "waiting" and self.state == "angry":
             self.order_timer_start_ticks = None
+
+        if previous_state == "waiting" and self.state == "angry":  # 例如超时
+            self.order_timer_start_ticks = None
+
+    def _animate(self, current_ticks):
+        """处理顾客动画的帧切换"""
+        if self.state in self.animation_frames and self.animation_frames[self.state]:
+            frames = self.animation_frames[self.state]
+            if not frames:  # 如果某个状态没有动画帧
+                self.current_image = None  # 或者设置为一个静态占位图
+                return
+
+            if current_ticks - self.last_animation_update_time > self.animation_frame_duration:
+                self.last_animation_update_time = current_ticks
+                self.current_animation_frame_index = (
+                    self.current_animation_frame_index + 1) % len(frames)
+                self.current_image = frames[self.current_animation_frame_index]
+        elif self.state == "empty":  # 确保空状态没有图像
+            self.current_image = None
 
     def receive_item(self, item_category, item_key):
         if not self.order or self.order_fulfilled or self.state not in ["waiting"]:
@@ -141,7 +164,6 @@ class Customer:
             sushi_correct = (self.sushi_received_key == current_sushi_order)
             drink_correct = (self.drink_received_key == current_drink_order)
             self.order_fulfilled = True  # 标记订单已尝试完成
-            self.order_timer_start_ticks = None  # 订单处理完毕，停止订单计时器
 
             if sushi_correct and drink_correct:
                 self.set_state("happy")
@@ -159,6 +181,9 @@ class Customer:
 
     def update(self):
         current_ticks = pygame.time.get_ticks()
+
+        # +++ 调用动画处理 +++
+        self._animate(current_ticks)
 
         # --- 订单超时检查 ---
         if self.state == "waiting" and self.order and not self.order_fulfilled and self.order_timer_start_ticks is not None:
@@ -182,9 +207,10 @@ class Customer:
                 self.drink_received_key = None
                 self.current_image = None
                 self.departure_timer_start = None
-                self.order_timer_start_ticks = None # 确保订单计时器也清空
-                self.order_remaining_seconds = ORDER_DURATION_SECONDS # 重置
-                return True # 表示顾客已离开
+                self.order_timer_start_ticks = None
+                self.order_remaining_seconds = ORDER_DURATION_SECONDS
+                self.current_animation_frame_index = 0  # 重置动画状态
+                return True
         return False
 
 
@@ -192,14 +218,19 @@ class Customer:
         if self.state == "empty": # 如果是空位，不绘制顾客和订单气泡
             return
 
+        # 绘制顾客 (现在 current_image 会是动画的当前帧)
         if self.current_image:
             surface.blit(self.current_image, self.rect)
-        else: # 备用绘制，以防图片加载失败但状态不是 empty
-            placeholder_color = (128, 128, 128) #灰色
-            if self.state == "waiting": placeholder_color = (0,0,200)
-            elif self.state == "happy": placeholder_color = (0,200,0)
-            elif self.state == "angry": placeholder_color = (200,0,0)
-            pygame.draw.rect(surface, placeholder_color, self.rect, 2)
+        # 如果状态不是 empty 但没有 current_image (例如GIF加载失败)
+        elif self.state != "empty":
+            # 可以画一个占位符
+            pygame.draw.rect(surface, (100, 100, 100), self.rect, 2)
+            if self.small_font:
+                text_surf = self.small_font.render(self.state, True, BLACK)
+                text_rect = text_surf.get_rect(center=self.rect.center)
+                surface.blit(text_surf, text_rect)
+
+        # --- 订单气泡绘制逻辑 (保持不变) ---
 
         bubble_drawn = False
         bubble_base_x = 0
