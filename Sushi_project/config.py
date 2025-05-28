@@ -166,6 +166,8 @@ CUSTOMER_SPOT_POSITIONS = [
 
 # --- Customer Visuals & Order Bubble ---
 CUSTOMER_IMAGE_SIZE = (120, 180)  # 顾客图片显示大小 (需要根据你的GIF调整)
+# 顾客动画每帧的持续时间 (毫秒)，例如 100ms = 10 FPS for the GIF
+CUSTOMER_ANIMATION_FRAME_DURATION = 100
 # 新增：顾客图片底部相对于其桌子区顶部的垂直偏移量
 # 正值表示顾客图片的底部在桌子区顶部之上多少像素 (即两者间的空隙)
 # 负值表示顾客图片的底部会进入桌子区 (重叠)
