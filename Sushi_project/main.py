@@ -23,11 +23,28 @@ try:
     start_button_path = os.path.join(UI_IMAGES_DIR, START_BUTTON_IMG)
     start_button_image = pygame.image.load(start_button_path).convert_alpha()
     start_button_rect = start_button_image.get_rect()
+
+    # +++ 加载计时器和时间到图片 +++
+    timer_icon_image = load_scaled_image(
+        TIMER_ICON_FILENAME, TIMER_ICON_SIZE, directory=UI_IMAGES_DIR)
+    times_up_image = load_scaled_image(
+        TIMES_UP_IMG_FILENAME, TIMES_UP_IMAGE_SIZE, directory=UI_IMAGES_DIR)
+    if times_up_image:  # 确保图片加载成功再获取rect
+        times_up_rect = times_up_image.get_rect(
+            center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+    else:
+        times_up_rect = None  # 或者设置一个默认的rect
+
 except pygame.error as e:
     print(f"无法加载背景或按钮图片资源: {e}")
     pygame.quit()
     sys.exit()
+except Exception as e:  # 捕获其他可能的加载错误
+    print(f"加载资源时发生错误: {e}")
+    pygame.quit()
+    sys.exit()
 
+# --- 加载字体 ---
 custom_font = None
 custom_font_large = None
 small_font = None
@@ -127,26 +144,57 @@ for pos in CUSTOMER_SPOT_POSITIONS:
 
 customers = []
 for i in range(NUM_CUSTOMER_SPOTS):
-    cust = Customer(i,
-                    customer_spot_rects[i],
-                    preloaded_sushi_images_for_order, # 传递预加载的寿司图片
-                    preloaded_drink_images_for_order) # 传递预加载的饮品图片
+    cust = Customer(
+        i, customer_spot_rects[i], preloaded_sushi_images_for_order, preloaded_drink_images_for_order)
     customers.append(cust)
+
+last_customer_spawn_time = {}
+for i in range(NUM_CUSTOMER_SPOTS):
+    last_customer_spawn_time[i] = 0  # 初始化为0，确保游戏开始时可以生成
+
 
 def get_customer_at_spot(spot_index):
     if 0 <= spot_index < len(customers):
         return customers[spot_index]
     return None
 
-# --- 游戏状态初始化 ---
+
+# --- 游戏状态和计时器变量 ---
 current_game_state = STATE_START_SCREEN
+game_start_time = 0  # 游戏开始的时刻 (pygame.time.get_ticks())
+remaining_time = GAME_DURATION_SECONDS  # 剩余时间（秒）
+
 start_button_rect.centerx = SCREEN_WIDTH // 2
 start_button_rect.centery = SCREEN_HEIGHT // 2 + 220
+
+
+def reset_game_state():
+    """重置游戏到初始运行状态"""
+    global game_start_time, remaining_time
+    game_start_time = pygame.time.get_ticks()
+    remaining_time = GAME_DURATION_SECONDS
+    player_h.drop_item()  # 清空玩家手中的物品
+    cutting_b.clear()    # 清空菜板
+
+    current_ticks = pygame.time.get_ticks()
+    for i, customer in enumerate(customers):
+        customer.state = "empty"  # 将所有顾客设置为空位
+        customer.order = None
+        customer.order_fulfilled = False
+        customer.sushi_received_key = None
+        customer.drink_received_key = None
+        customer.departure_timer_start = None
+        last_customer_spawn_time[i] = current_ticks - random.randint(
+            0, NEW_CUSTOMER_SPAWN_DELAY_MAX_MS // 2)  # 错开初始生成时间
+
+    # (可选) 清空小费等其他游戏变量
+    print("游戏状态已重置")
 
 
 # --- 游戏主循环 ---
 running = True
 while running:
+    current_time_ticks = pygame.time.get_ticks()
     mouse_pos = pygame.mouse.get_pos()
 
     for event in pygame.event.get():
@@ -158,75 +206,85 @@ while running:
                 if event.button == 1:
                     if start_button_rect.collidepoint(mouse_pos):
                         current_game_state = STATE_GAME_RUNNING
-                        # TODO: 初始化游戏计时器等逻辑
+                        reset_game_state()  # 重置游戏状态并开始计时
+                        # 初始顾客生成现在由 reset_game_state 和后续的 update 循环处理
 
         elif current_game_state == STATE_GAME_RUNNING:
-            for customer in customers:
-                customer.update()
+            # --- 计时器更新 ---
+            if game_start_time > 0:  # 确保计时器已启动
+                elapsed_seconds = (current_time_ticks -
+                                   game_start_time) // 1000
+                remaining_time = GAME_DURATION_SECONDS - elapsed_seconds
+                if remaining_time <= 0:
+                    remaining_time = 0
+                    current_game_state = STATE_GAME_OVER
+                    print("时间到! 游戏结束。")
+                    # 可以在这里播放一个音效等
 
+            # --- 顾客逻辑更新 ---
+            for i, customer in enumerate(customers):
+                if customer.state != "empty":
+                    if customer.update():  # customer.update() 返回 True 表示顾客刚离开
+                        print(f"座位 {i+1} 空出来了。")
+                        last_customer_spawn_time[i] = current_time_ticks
+
+            # --- 新顾客生成逻辑 ---
+            for i, customer in enumerate(customers):
+                if customer.state == "empty":
+                    spawn_delay = random.randint(
+                        NEW_CUSTOMER_SPAWN_DELAY_MIN_MS, NEW_CUSTOMER_SPAWN_DELAY_MAX_MS)
+                    if current_time_ticks - last_customer_spawn_time[i] > spawn_delay:
+                        if customer.generate_order():
+                           last_customer_spawn_time[i] = current_time_ticks
+
+            # --- 鼠标点击事件处理 ---
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:  # 鼠标左键
-
-                    # 1. 如果玩家手上有物品，则此次点击是“放下”到顾客区操作
+                if event.button == 1:
                     if player_h.is_holding:
-                        served_to_customer = False
+                        # ... (服务顾客逻辑，保持不变) ...
+                        served_to_customer_this_click = False
                         for i, spot_rect in enumerate(customer_spot_rects):
                             if spot_rect.collidepoint(mouse_pos):
                                 customer_at_spot = get_customer_at_spot(i)
-                                if customer_at_spot and not customer_at_spot.order_fulfilled:
-                                    category, key = player_h.drop_item() # 从手中移除物品
-                                    if category and key: # 确保成功放下了物品
-                                        # 调用顾客的 receive_item 方法
-                                        customer_at_spot.receive_item(item_category=category, item_key=key)
-                                        # receive_item 内部会处理状态和订单完成情况
-                                    served_to_customer = True
+                                if customer_at_spot and customer_at_spot.state == "waiting":
+                                    category, key = player_h.drop_item()
+                                    if category and key:
+                                        customer_at_spot.receive_item(
+                                            item_category=category, item_key=key)
+                                    served_to_customer_this_click = True
                                 elif customer_at_spot and customer_at_spot.order_fulfilled:
-                                    print(f"顾客 {i+1} 的订单已完成。")
-                                    # 物品仍在手中，因为没有调用 drop_item
-                                else:
-                                    print(f"顾客位 {i+1} 没有顾客或无法服务。")
-                                break # 处理完一个顾客区点击就够了
-
-                        if not served_to_customer:
-                            # 如果点击的不是有效的顾客区，或者顾客已满足，可以选择让玩家“扔掉”物品或继续持有
-                            # 当前 player_h.drop_item() 已经被调用（如果上面逻辑触发了）
-                            # 为了避免物品丢失，如果没服务成功，应该让玩家重新拿起来，
-                            # 或者在 drop_item 前就判断好。
-                            # 一个简单的处理：如果没成功服务，就当是误操作，物品还在手上（除非上面已经drop了）
-                            # 这部分逻辑在之前已经指出需要优化，我们先假设如果点击了非顾客区，物品就“放空”了
-                            # player_h.drop_item() # 如果希望点击空白处放下物品，则取消注释
-                            print("未点击到有效的顾客服务区，或该顾客订单已完成。")
-
-
-                    # 2. 玩家手上没东西，与场景交互 (食材容器、饮品机、菜板)
-                    else:
+                                    print(f"顾客 {i+1} 的订单已处理。")
+                                elif customer_at_spot and customer_at_spot.state != "waiting":
+                                    print(
+                                        f"顾客 {i+1} 当前不接受服务 (状态: {customer_at_spot.state})。")
+                                break
+                    else:  # 玩家手上没东西
+                        # ... (与食材、饮品机、菜板交互的逻辑，保持不变) ...
                         clicked_on_interactive = False
-                        for element in interactive_elements: # 包含食材容器和饮品机
+                        for element in interactive_elements:
                             if element.is_clicked(mouse_pos):
                                 clicked_on_interactive = True
                                 if isinstance(element, RiceContainer):
                                     cutting_b.add_rice()
                                 elif isinstance(element, ToppingContainer):
                                     cutting_b.add_topping(element.topping_key)
-                                # +++ 处理点击饮品机 +++
                                 elif isinstance(element, DrinkDispenser):
                                     player_h.pickup_drink(element.drink_key)
-                                break # 点击了一个元素后就停止检查其他元素
+                                break
+                        if not clicked_on_interactive and cutting_b.rect.collidepoint(mouse_pos):
+                            if cutting_b.is_complete():
+                                sushi_to_pickup = cutting_b.get_sushi_name()
+                                if sushi_to_pickup and player_h.pickup_sushi(sushi_to_pickup):
+                                    cutting_b.clear()
 
-                        if not clicked_on_interactive: # 如果没点到容器或饮品机，再检查菜板
-                            if cutting_b.rect.collidepoint(mouse_pos):
-                                if cutting_b.is_complete():
-                                    sushi_to_pickup = cutting_b.get_sushi_name() # 这是 topping_key
-                                    if sushi_to_pickup: # 确保 sushi_to_pickup 不是 None
-                                        # PlayerHand 的 pickup_sushi 需要的是 SUSHI_TYPES 中的 key
-                                        # 而 cutting_b.get_sushi_name() 返回的是 TOPPINGS 中的 key
-                                        # 假设 topping_key 和 sushi_type_key 是一致的 (例如 "salmon")
-                                        if player_h.pickup_sushi(sushi_to_pickup):
-                                            cutting_b.clear()
-                                # else: print("菜板上的寿司还没做好！")
+        elif current_game_state == STATE_GAME_OVER:
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    current_game_state = STATE_START_SCREEN  # 点击后返回开始界面
 
     # --- 绘制阶段 ---
-    screen.fill(WHITE) # 清屏
+    screen.fill(WHITE)
+
     if current_game_state == STATE_START_SCREEN:
         screen.blit(start_background_image, (0, 0))
         screen.blit(start_button_image, start_button_rect.topleft)
@@ -234,44 +292,64 @@ while running:
     elif current_game_state == STATE_GAME_RUNNING:
         screen.blit(restaurant_background_image, (0, 0))
 
-        # 绘制所有可交互的UI元素 (米饭、配料、饮品机)
         for element in interactive_elements:
             element.draw(screen, custom_font)
-
-        # 绘制菜板 (菜板有自己的 draw 方法，因为它比较特殊)
         cutting_b.draw(screen, custom_font)
 
-        # 绘制顾客区占位符/桌子 (可选)
         for i, spot_rect in enumerate(customer_spot_rects):
             temp_surface = pygame.Surface(spot_rect.size, pygame.SRCALPHA)
             customer = get_customer_at_spot(i)
-            color_to_fill = CUSTOMER_SPOT_COLOR # 默认颜色
+            color_to_fill = CUSTOMER_SPOT_COLOR_DEFAULT
             if customer:
-                if customer.order_fulfilled:
-                    color_to_fill = GREEN + (100,) # 开心绿色 (半透明)
-                elif customer.sushi_received_key and customer.drink_received_key: # 都收到了但还没判断完成 (理论上不应该到这)
-                    pass
-                elif customer.sushi_received_key or customer.drink_received_key: # 收到一部分
-                    color_to_fill = (255, 255, 0, 100) # 黄色提示 (半透明)
-
+                if customer.state == "empty":
+                    color_to_fill = CUSTOMER_SPOT_COLOR_EMPTY
+                elif customer.state == "waiting":
+                    color_to_fill = CUSTOMER_SPOT_COLOR_WAITING
+                elif customer.state == "happy":
+                    color_to_fill = CUSTOMER_SPOT_COLOR_HAPPY
+                elif customer.state == "angry":
+                    color_to_fill = CUSTOMER_SPOT_COLOR_ANGRY
             temp_surface.fill(color_to_fill)
             screen.blit(temp_surface, spot_rect.topleft)
-            # index_text = small_font.render(str(i + 1), True, BLACK)
-            # screen.blit(index_text, index_text.get_rect(center=spot_rect.center))
 
-
-        # 绘制顾客及其订单
         for customer in customers:
-            if customer.state != "empty": # 假设 "empty" 状态的顾客不绘制
-                customer.draw(screen)
+            customer.draw(screen)
 
-        # 绘制玩家手持物品
-        hud_pos = (20, SCREEN_HEIGHT - 50) # HUD文字位置调整
-        player_h.draw(screen, mouse_pos, font_for_hud=small_font, hud_position=hud_pos)
+        hud_pos = (20, SCREEN_HEIGHT - 50)
+        player_h.draw(screen, mouse_pos, font_for_hud=small_font,
+                      hud_position=hud_pos)
 
+        # +++ 绘制计时器 +++
+        if timer_icon_image:
+            screen.blit(timer_icon_image, TIMER_ICON_POS)
+
+        minutes = max(0, remaining_time // 60)  # 确保不显示负数
+        seconds = max(0, remaining_time % 60)
+        timer_text_str = f"{minutes:02}:{seconds:02}"
+        timer_surf = small_font.render(timer_text_str, True, BLACK)
+        # 文本位置在图标右侧，垂直居中对齐图标
+        timer_text_rect = timer_surf.get_rect(midleft=(TIMER_ICON_POS[0] + TIMER_ICON_SIZE[0] + TIMER_TEXT_OFFSET_X,
+                                                       TIMER_ICON_POS[1] + TIMER_ICON_SIZE[1] // 2))
+        screen.blit(timer_surf, timer_text_rect)
+
+    elif current_game_state == STATE_GAME_OVER:
+        # 可以选择绘制游戏运行时的最后一帧，或者一个特定的游戏结束背景
+        # 或者 game_over_background_image
+        screen.blit(restaurant_background_image, (0, 0))
+
+        if times_up_image and times_up_rect:
+            screen.blit(times_up_image, times_up_rect)
+
+        # 提示信息
+        game_over_msg = "时间到! 点击任意位置返回主菜单"
+        msg_surf = custom_font.render(game_over_msg, True, BLACK)
+        msg_rect = msg_surf.get_rect(center=(
+            SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + times_up_rect.height // 2 + 40))  # 在图片下方
+        screen.blit(msg_surf, msg_rect)
 
     pygame.display.flip()
     clock.tick(FPS)
 
 pygame.quit()
 sys.exit()
+
