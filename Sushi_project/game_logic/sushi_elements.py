@@ -2,6 +2,7 @@
 
 import pygame
 import os
+from PIL import Image  # +++ 导入 Pillow 库的 Image 模块 +++
 from config import (
     RICE, TOPPINGS, BLACK, SUSHI_TYPES, DRINK_TYPES,
     UI_IMAGES_DIR, SUSHI_IMAGES_DIR, DRINK_IMAGES_DIR, # 添加 DRINK_IMAGES_DIR
@@ -30,6 +31,36 @@ def load_scaled_image(image_filename, size=None, directory=UI_IMAGES_DIR):
         print(f"无法加载或缩放图片 {path}: {e}")
         return None
 
+# +++ 新增辅助函数：加载 GIF 动画帧 +++
+def load_gif_frames(gif_filename, target_size, directory=UI_IMAGES_DIR):
+    """加载GIF文件并返回一个包含所有帧的Pygame Surface列表。"""
+    if not gif_filename:
+        print("警告: load_gif_frames 收到空文件名。")
+        return []
+    path = os.path.join(directory, gif_filename)
+    frames = []
+    try:
+        with Image.open(path) as img:
+            for frame_num in range(img.n_frames):
+                img.seek(frame_num)
+                # 将Pillow帧转换为RGBA（如果不是）以确保与Pygame兼容性好
+                pil_frame = img.convert('RGBA')
+                pygame_surface = pygame.image.fromstring(
+                    pil_frame.tobytes(), pil_frame.size, pil_frame.mode
+                )
+                if target_size:
+                    pygame_surface = pygame.transform.scale(
+                        pygame_surface, target_size)
+                frames.append(pygame_surface)
+        if not frames:
+            print(f"警告: 未能从 {path} 加载任何帧。")
+        return frames
+    except FileNotFoundError:
+        print(f"GIF 文件未找到: {path}")
+        return []
+    except Exception as e:
+        print(f"加载或处理GIF {path} 时出错: {e}")
+        return []
 
 class ClickableElement:
     # ... (保持不变) ...
