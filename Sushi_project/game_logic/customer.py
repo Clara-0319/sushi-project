@@ -8,7 +8,9 @@ from config import (
     CUSTOMER_WAITING_IMG_FILENAME, CUSTOMER_HAPPY_IMG_FILENAME, CUSTOMER_ANGRY_IMG_FILENAME,
     ORDER_BUBBLE_IMG_FILENAME, CUSTOMER_IMAGE_SIZE, ORDER_BUBBLE_SIZE, ORDER_ITEM_IMAGE_SIZE,
     ORDER_BUBBLE_OFFSET_X, ORDER_BUBBLE_OFFSET_Y, BLACK, SMALL_FONT_SIZE,
-    CUSTOMER_IMAGE_BOTTOM_Y_OFFSET_ABOVE_TABLE
+    CUSTOMER_IMAGE_BOTTOM_Y_OFFSET_ABOVE_TABLE,
+    CUSTOMER_HAPPY_LEAVE_DELAY_MS, CUSTOMER_ANGRY_LEAVE_DELAY_MS # 导入延迟常量
+    TIP_PERFECT_ORDER, TIP_PARTIAL_ORDER, TIP_WRONG_ORDER  # 导入小费常量
 )
 
 # 确保 load_scaled_image 在这里可用 (如果它不在 utils.py 中)
@@ -38,7 +40,7 @@ class Customer:
         self.rect.midbottom = (table_spot_rect.centerx,
                                table_spot_rect.top - CUSTOMER_IMAGE_BOTTOM_Y_OFFSET_ABOVE_TABLE)
 
-        self.state = "waiting"  # "waiting", "happy", "angry", "leaving", "empty"
+        self.state = "empty"  # 初始状态可以是 "empty"，由 main.py 决定何时生成第一个订单
         self.order = None      # {"sushi": "sushi_key", "drink": "drink_key"}
         self.order_fulfilled = False
 
@@ -46,12 +48,16 @@ class Customer:
         self.sushi_received_key = None
         self.drink_received_key = None
 
+        self.departure_timer_start = None # 记录开始计时离开的时间点
+        self.leave_delay = 0 # 离开前的延迟时间
+
         self.images = {
             "waiting": load_scaled_image(CUSTOMER_WAITING_IMG_FILENAME, CUSTOMER_IMAGE_SIZE, directory=CUSTOMER_IMAGES_DIR),
             "happy": load_scaled_image(CUSTOMER_HAPPY_IMG_FILENAME, CUSTOMER_IMAGE_SIZE, directory=CUSTOMER_IMAGES_DIR),
             "angry": load_scaled_image(CUSTOMER_ANGRY_IMG_FILENAME, CUSTOMER_IMAGE_SIZE, directory=CUSTOMER_IMAGES_DIR),
         }
-        self.current_image = self.images.get(self.state)
+        self.current_image = None # 初始为空，在 generate_order 时设置
+
         self.order_bubble_image = load_scaled_image(
             ORDER_BUBBLE_IMG_FILENAME, ORDER_BUBBLE_SIZE, directory=UI_IMAGES_DIR)
 
@@ -67,100 +73,130 @@ class Customer:
         except Exception:
             self.small_font = pygame.font.SysFont(None, SMALL_FONT_SIZE)
 
-        self.generate_order()
+        # 不在初始化时立即生成订单，由 main.py 控制生成时机
+        # self.generate_order()
 
     def generate_order(self):
-        sushi_key = random.choice(list(SUSHI_TYPES.keys()))
-        drink_key = random.choice(list(DRINK_TYPES.keys()))
-        self.order = {"sushi": sushi_key, "drink": drink_key}
-        self.order_fulfilled = False
-        self.sushi_received_key = None # 重置已收到的物品
-        self.drink_received_key = None
-        self.set_state("waiting")
-        print(
-            f"顾客 {self.spot_index+1} 点单: {SUSHI_TYPES[sushi_key]['name']} 和 {DRINK_TYPES[drink_key]['name']}")
+        if self.state == "empty": # 只有空位时才能生成新订单
+            sushi_key = random.choice(list(SUSHI_TYPES.keys()))
+            drink_key = random.choice(list(DRINK_TYPES.keys()))
+            self.order = {"sushi": sushi_key, "drink": drink_key}
+            self.order_fulfilled = False
+            self.sushi_received_key = None
+            self.drink_received_key = None
+            self.departure_timer_start = None # 重置离开计时器
+            self.set_state("waiting") # 新订单，进入等待状态
+            print(
+                f"顾客 {self.spot_index+1} 点单: {SUSHI_TYPES[sushi_key]['name']} 和 {DRINK_TYPES[drink_key]['name']}")
+            return True
+        return False
 
     def set_state(self, new_state):
-        if new_state in self.images:
-            self.state = new_state
-            self.current_image = self.images.get(self.state)
-        # else: # 允许设置 "leaving" 或 "empty" 等没有对应图片的状态
-            # print(f"警告: 顾客状态 '{new_state}' 没有对应的图片。")
+        self.state = new_state
+        self.current_image = self.images.get(self.state) # 如果是 "empty" 或 "leaving"，current_image 会是 None
+
+        # 如果进入 happy 或 angry 状态，启动离开计时器
+        if self.state == "happy":
+            self.departure_timer_start = pygame.time.get_ticks()
+            self.leave_delay = CUSTOMER_HAPPY_LEAVE_DELAY_MS
+            print(f"顾客 {self.spot_index+1} 开心，准备在 {self.leave_delay/1000} 秒后离开。")
+        elif self.state == "angry":
+            self.departure_timer_start = pygame.time.get_ticks()
+            self.leave_delay = CUSTOMER_ANGRY_LEAVE_DELAY_MS
+            print(f"顾客 {self.spot_index+1} 生气，准备在 {self.leave_delay/1000} 秒后离开。")
 
 
-    # +++ 新增：接收物品并检查订单的方法 +++
+
     def receive_item(self, item_category, item_key):
-        """顾客接收一个物品（寿司或饮品），并更新状态。"""
-        if not self.order or self.order_fulfilled:
-            print(f"顾客 {self.spot_index+1} 没有待处理订单或订单已完成。")
-            return False # 不能接收物品
-
-        item_correct = False
-        if item_category == "sushi":
-            if self.order["sushi"] == item_key:
-                self.sushi_received_key = item_key
-                item_correct = True
-                print(f"顾客 {self.spot_index+1} 收到正确的寿司: {SUSHI_TYPES[item_key]['name']}")
-            else:
-                print(f"顾客 {self.spot_index+1} 收到错误的寿司: {SUSHI_TYPES.get(item_key, {}).get('name', '未知寿司')}")
-        elif item_category == "drink":
-            if self.order["drink"] == item_key:
-                self.drink_received_key = item_key
-                item_correct = True
-                print(f"顾客 {self.spot_index+1} 收到正确的饮品: {DRINK_TYPES[item_key]['name']}")
-            else:
-                print(f"顾客 {self.spot_index+1} 收到错误的饮品: {DRINK_TYPES.get(item_key, {}).get('name', '未知饮品')}")
-
-        if not item_correct:
-            self.set_state("angry")
-            # 错误惩罚：可以考虑是否清空已收到的正确物品，或增加等待时间等
-            # self.sushi_received_key = None # 例如，送错一个就得重新送整套
-            # self.drink_received_key = None
+        if not self.order or self.order_fulfilled or self.state not in ["waiting", "angry_waiting"]: # angry_waiting 可以是收到一个错的但还在等另一个
+            print(f"顾客 {self.spot_index+1} 无法接收物品 (状态: {self.state}, 订单完成: {self.order_fulfilled})。")
             return False
 
-        # 检查订单是否完整
-        if self.sushi_received_key == self.order["sushi"] and \
-           self.drink_received_key == self.order["drink"]:
-            self.order_fulfilled = True
-            self.set_state("happy")
-            print(f"顾客 {self.spot_index+1} 订单完整完成!")
-            # TODO: 在这里触发小费计算和顾客离开的逻辑
-            return True # 订单完整且正确
+        current_sushi_order = self.order["sushi"]
+        current_drink_order = self.order["drink"]
+        made_change = False
 
-        return True # 物品正确，但订单未完整
+        if item_category == "sushi" and not self.sushi_received_key:
+            self.sushi_received_key = item_key
+            print(f"顾客 {self.spot_index+1} 收到寿司: {SUSHI_TYPES.get(item_key, {}).get('name', '未知寿司')}")
+            made_change = True
+        elif item_category == "drink" and not self.drink_received_key:
+            self.drink_received_key = item_key
+            print(f"顾客 {self.spot_index+1} 收到饮品: {DRINK_TYPES.get(item_key, {}).get('name', '未知饮品')}")
+            made_change = True
+        else:
+            print(f"顾客 {self.spot_index+1} 已收到过 {item_category} 或尝试提供错误类别的物品。")
+            return False # 避免重复提交同类物品或逻辑错误
+
+        if made_change and self.sushi_received_key and self.drink_received_key:
+            # 两样东西都收到了，现在判断最终状态
+            sushi_correct = (self.sushi_received_key == current_sushi_order)
+            drink_correct = (self.drink_received_key == current_drink_order)
+
+            if sushi_correct and drink_correct:
+                self.order_fulfilled = True
+                self.set_state("happy")
+                print(f"顾客 {self.spot_index+1} 订单完美完成!")
+            elif sushi_correct or drink_correct: # 至少对了一个
+                self.order_fulfilled = True # 即使有一个错，也算订单结束了
+                self.set_state("happy") # 按你的要求，一对一错也是 happy
+                print(f"顾客 {self.spot_index+1} 订单部分完成 (至少一项正确)!")
+            else: # 全错
+                self.order_fulfilled = True # 订单也结束了
+                self.set_state("angry")
+                print(f"顾客 {self.spot_index+1} 订单完全错误!")
+        elif made_change:
+            # 只收到了一部分，继续等待 (保持 waiting 状态)
+            print(f"顾客 {self.spot_index+1} 收到部分订单，继续等待。")
+            # 如果送错了一个，可以考虑在这里就生气，但按你的最新描述，是等两样都送完再判断
+            # 如果希望送错一个就直接生气并离开，需要调整这里的逻辑
+
+        return True
+
 
     def update(self):
-        # 可以在这里添加计时器逻辑，例如：
-        # 如果生气状态持续过久，顾客离开
-        # 如果开心状态（订单完成），一段时间后离开并空出位置
-        pass
+        current_time = pygame.time.get_ticks()
+        if self.state in ["happy", "angry"] and self.departure_timer_start is not None:
+            if current_time - self.departure_timer_start >= self.leave_delay:
+                print(f"顾客 {self.spot_index+1} 离开。")
+                self.state = "empty" # 标记为空位
+                self.order = None
+                self.order_fulfilled = False
+                self.sushi_received_key = None
+                self.drink_received_key = None
+                self.current_image = None # 清空图片
+                self.departure_timer_start = None # 重置计时器
+                # 在这里可以返回一个信号或True，告诉main.py该顾客已离开，可以生成新顾客
+                return True # 表示顾客已离开
+        return False # 表示顾客未离开
 
     def draw(self, surface):
+        if self.state == "empty": # 如果是空位，不绘制顾客和订单气泡
+            return
+
         if self.current_image:
             surface.blit(self.current_image, self.rect)
-        else:
-            pygame.draw.rect(surface, (0, 255, 0) if self.state != "empty" else (50,50,50), self.rect, 2)
+        else: # 备用绘制，以防图片加载失败但状态不是 empty
+            placeholder_color = (128, 128, 128) #灰色
+            if self.state == "waiting": placeholder_color = (0,0,200)
+            elif self.state == "happy": placeholder_color = (0,200,0)
+            elif self.state == "angry": placeholder_color = (200,0,0)
+            pygame.draw.rect(surface, placeholder_color, self.rect, 2)
 
-
-        if self.order and not self.order_fulfilled and self.order_bubble_image: # 只有未完成的订单才显示气泡
+        # 只有在等待状态且有订单时才绘制订单气泡
+        if self.state == "waiting" and self.order and self.order_bubble_image:
             bubble_x = self.rect.centerx - ORDER_BUBBLE_SIZE[0] // 2 + ORDER_BUBBLE_OFFSET_X
             bubble_y = self.rect.top + ORDER_BUBBLE_OFFSET_Y
             surface.blit(self.order_bubble_image, (bubble_x, bubble_y))
 
-            item_start_x = bubble_x + 15  # 气泡内边距调整
+            item_start_x = bubble_x+23
             item_y_center = bubble_y + ORDER_BUBBLE_SIZE[1] // 2
 
-            # 绘制寿司需求 (如果未收到或收到的不匹配，则显示；如果已正确收到，可以考虑打勾或变灰)
+            # 绘制寿司需求
             sushi_key_ordered = self.order.get("sushi")
             sushi_display_img = None
-            if sushi_key_ordered:
-                if self.sushi_received_key == sushi_key_ordered: # 如果已正确收到寿司
-                    # 可以加载一个“已完成”的标记或者让图片变灰暗
-                    # 这里我们还是显示原图，但可以考虑加个对勾图片
-                    sushi_display_img = self.sushi_item_images.get(sushi_key_ordered)
-                    # pass # 或者不显示，或者显示一个打勾的图标
-                else: # 未收到或收到错误的（错误情况由 receive_item 处理状态，这里只管显示需求）
-                    sushi_display_img = self.sushi_item_images.get(sushi_key_ordered)
+            if sushi_key_ordered and not self.sushi_received_key: # 只在未收到时显示
+                sushi_display_img = self.sushi_item_images.get(sushi_key_ordered)
 
             if sushi_display_img:
                 sushi_img_scaled = pygame.transform.scale(sushi_display_img, ORDER_ITEM_IMAGE_SIZE)
@@ -168,35 +204,32 @@ class Customer:
                 sushi_rect.left = item_start_x
                 surface.blit(sushi_img_scaled, sushi_rect)
                 item_start_x += ORDER_ITEM_IMAGE_SIZE[0] + 5
-            elif sushi_key_ordered: # 图片加载失败，显示文字
+            elif sushi_key_ordered and not self.sushi_received_key:
                 sushi_text = self.small_font.render(SUSHI_TYPES.get(sushi_key_ordered, {}).get('name', "寿司"), True, BLACK)
                 text_rect = sushi_text.get_rect(centery=item_y_center, left=item_start_x)
                 surface.blit(sushi_text, text_rect)
                 item_start_x += text_rect.width + 10
 
+            # 只有当寿司和饮品都未收到，或者寿司未收到时才画 "+"
+            if sushi_key_ordered and not self.sushi_received_key and \
+               self.order.get("drink") and not self.drink_received_key:
+                plus_text = self.small_font.render("+", True, BLACK)
+                plus_rect = plus_text.get_rect(centery=item_y_center, left=item_start_x)
+                surface.blit(plus_text, plus_rect)
+                item_start_x += plus_rect.width + 5
 
-            # 绘制 "+" 文字
-            plus_text = self.small_font.render("+", True, BLACK)
-            plus_rect = plus_text.get_rect(centery=item_y_center, left=item_start_x)
-            surface.blit(plus_text, plus_rect)
-            item_start_x += plus_rect.width + 5
-
-            # 绘制饮品需求 (如果未收到或收到的不匹配，则显示)
+            # 绘制饮品需求
             drink_key_ordered = self.order.get("drink")
             drink_display_img = None
-            if drink_key_ordered:
-                if self.drink_received_key == drink_key_ordered: # 如果已正确收到饮品
-                    drink_display_img = self.drink_item_images.get(drink_key_ordered)
-                    # pass
-                else:
-                    drink_display_img = self.drink_item_images.get(drink_key_ordered)
+            if drink_key_ordered and not self.drink_received_key: # 只在未收到时显示
+                drink_display_img = self.drink_item_images.get(drink_key_ordered)
 
             if drink_display_img:
-                drink_img_scaled = pygame.transform.scale(drink_display_img, ORDER_ITEM_IMAGE_SIZE) 
+                drink_img_scaled = pygame.transform.scale(drink_display_img, ORDER_ITEM_IMAGE_SIZE)
                 drink_rect = drink_img_scaled.get_rect(centery=item_y_center)
                 drink_rect.left = item_start_x
                 surface.blit(drink_img_scaled, drink_rect)
-            elif drink_key_ordered: # 图片加载失败
+            elif drink_key_ordered and not self.drink_received_key:
                 drink_text = self.small_font.render(DRINK_TYPES.get(drink_key_ordered, {}).get('name', "饮品"), True, BLACK)
                 text_rect = drink_text.get_rect(centery=item_y_center, left=item_start_x)
                 surface.blit(drink_text, text_rect)
