@@ -168,15 +168,15 @@ class Customer:
             if sushi_correct and drink_correct:
                 self.set_state("happy")
                 tip_earned = TIP_PERFECT_ORDER
-                print(f"顾客 {self.spot_index+1} 订单完美完成! 获得小费: {tip_earned}")
+                #print(f"顾客 {self.spot_index+1} 订单完美完成! 获得小费: {tip_earned}")
             elif sushi_correct or drink_correct:
                 self.set_state("happy")
                 tip_earned = TIP_PARTIAL_ORDER
-                print(f"顾客 {self.spot_index+1} 订单部分完成! 获得小费: {tip_earned}")
+                #print(f"顾客 {self.spot_index+1} 订单部分完成! 获得小费: {tip_earned}")
             else:
                 self.set_state("angry")
                 tip_earned = TIP_WRONG_ORDER
-                print(f"顾客 {self.spot_index+1} 订单完全错误! 获得小费: {tip_earned}")
+                #print(f"顾客 {self.spot_index+1} 订单完全错误! 获得小费: {tip_earned}")
         return tip_earned
 
     def update(self):
@@ -191,7 +191,7 @@ class Customer:
             self.order_remaining_seconds = ORDER_DURATION_SECONDS - (elapsed_order_time_ms // 1000)
             if self.order_remaining_seconds <= 0:
                 self.order_remaining_seconds = 0
-                print(f"顾客 {self.spot_index+1} 订单超时!")
+                #print(f"顾客 {self.spot_index+1} 订单超时!")
                 self.set_state("angry") # 顾客生气
                 self.order_fulfilled = True # 标记订单结束（虽然是失败的）
                 # 生气离开的计时器会在 set_state("angry") 中启动
