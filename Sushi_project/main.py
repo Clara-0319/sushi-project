@@ -11,8 +11,9 @@ from game_logic.customer import Customer, load_scaled_image
 # --- Pygame 初始化 (不变) ---
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("我的寿司餐厅 - 订单时限")
+pygame.display.set_caption("我的寿司餐厅 - 背景音乐")
 clock = pygame.time.Clock()
+pygame.mixer.init() # 初始化混音器模块
 
 # --- 加载资源 (大部分不变) ---
 try:
@@ -58,14 +59,43 @@ try:
     else:
         lose_rect = pygame.Rect(0, 0, 0, 0)
 
-except pygame.error as e:
-    print(f"无法加载背景或按钮图片资源: {e}")
+    # +++ 加载背景音乐 +++
+    try:
+        start_bgm_path = os.path.join(SOUNDS_DIR, START_SCREEN_BGM)
+        pygame.mixer.music.load(start_bgm_path)  # 先加载开始界面的音乐
+        pygame.mixer.music.set_volume(MUSIC_VOLUME)
+        # 注意：这里只是加载，不在初始化时播放，播放由状态切换控制
+    except pygame.error as e:
+        print(f"无法加载背景音乐 {START_SCREEN_BGM}: {e}")
+        # 可以选择不退出，让游戏无背景音乐运行
+
+    # 游戏运行时的BGM我们稍后在状态切换时加载和播放
+
+    # +++ 加载音效 +++
+    click_sound = None  # 初始化为 None
+    try:
+        click_sound_path = os.path.join(SOUNDS_DIR, CLICK_SOUND_FILENAME)
+        if os.path.exists(click_sound_path):
+            click_sound = pygame.mixer.Sound(click_sound_path)
+            click_sound.set_volume(SFX_VOLUME)
+        else:
+            print(f"警告: 点击音效文件未找到: {click_sound_path}")
+    except pygame.error as e:
+        print(f"无法加载音效 {CLICK_SOUND_FILENAME}: {e}")
+        # click_sound 会保持为 None，游戏可以继续运行
+
+except pygame.error as e:  # Pygame 特有的加载错误
+    print(f"Pygame 资源加载错误: {e}")
     pygame.quit()
     sys.exit()
-except Exception as e:  # 捕获其他可能的加载错误
-    print(f"加载资源时发生错误: {e}")
+except FileNotFoundError as e:  # 文件未找到错误
+    print(f"资源文件未找到: {e}")
     pygame.quit()
     sys.exit()
+#catch Exception as e:  # 其他所有可能的加载错误
+#    print(f"加载资源时发生未知错误: {e}")
+#    pygame.quit()
+#    sys.exit()
 
 # --- 加载字体 ---
 custom_font = None
@@ -198,6 +228,35 @@ game_over_transition_timer = 0  # 用于 "Time's Up" 显示后的延迟
 start_button_rect.centerx = SCREEN_WIDTH // 2
 start_button_rect.centery = SCREEN_HEIGHT // 2 + 220
 
+current_bgm = None  # 用于跟踪当前播放的BGM，避免重复加载
+
+
+def play_bgm(bgm_filename, loops=-1):
+    """播放指定的背景音乐"""
+    global current_bgm
+    if current_bgm == bgm_filename:  # 如果已经在播放同一首音乐，则不操作
+        if not pygame.mixer.music.get_busy():  # 但如果停止了，就重新播放
+            pygame.mixer.music.play(loops)
+        return
+
+    try:
+        full_path = os.path.join(SOUNDS_DIR, bgm_filename)
+        pygame.mixer.music.load(full_path)
+        pygame.mixer.music.set_volume(MUSIC_VOLUME)
+        pygame.mixer.music.play(loops)  # loops=-1 表示无限循环
+        current_bgm = bgm_filename
+        print(f"正在播放背景音乐: {bgm_filename}")
+    except pygame.error as e:
+        print(f"无法加载或播放背景音乐 {bgm_filename}: {e}")
+        current_bgm = None  # 加载失败，清除当前BGM记录
+
+
+def stop_bgm():
+    """停止当前播放的背景音乐"""
+    global current_bgm
+    pygame.mixer.music.stop()
+    current_bgm = None
+    print("背景音乐已停止。")
 
 def reset_game_state():
     global game_start_time, remaining_time, total_tips, game_over_phase, game_over_transition_timer
@@ -223,9 +282,13 @@ def reset_game_state():
         last_customer_spawn_time[i] = current_ticks - \
             random.randint(0, NEW_CUSTOMER_SPAWN_DELAY_MAX_MS // 2)
     print("游戏状态已重置")
+    play_bgm(GAME_RUNNING_BGM)  # 游戏开始时播放游戏BGM
 
 
 # --- 游戏主循环 ---
+# 在主循环开始前，播放开始界面的BGM
+play_bgm(START_SCREEN_BGM)
+
 running = True
 while running:
     current_time_ticks = pygame.time.get_ticks()
@@ -235,11 +298,16 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
+        # +++ 播放点击音效 +++
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # 1 代表鼠标左键
+            if click_sound:  # 确保音效已加载
+                click_sound.play()
+
         if current_game_state == STATE_START_SCREEN:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if start_button_rect.collidepoint(mouse_pos):
-                    current_game_state = STATE_GAME_RUNNING
                     reset_game_state()
+                    current_game_state = STATE_GAME_RUNNING
 
         elif current_game_state == STATE_GAME_RUNNING:
             # 全局计时器更新
@@ -252,6 +320,7 @@ while running:
                     current_game_state = STATE_GAME_OVER
                     game_over_phase = "showing_times_up"
                     game_over_transition_timer = current_time_ticks
+                    stop_bgm()  # 游戏结束时停止BGM，或者换成游戏结束音乐
                     print("时间到! 游戏结束。")
 
             # 顾客逻辑更新 (包括订单超时和离开)
@@ -314,8 +383,9 @@ while running:
             elif game_over_phase == "showing_result":
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     current_game_state = STATE_START_SCREEN
-
-    # --- 绘制阶段 ---
+                    play_bgm(START_SCREEN_BGM)  # 返回开始界面时，播放开始界面的BGM
+                    
+# --- 绘制阶段 ---
     screen.fill(WHITE)
 
     if current_game_state == STATE_START_SCREEN:
