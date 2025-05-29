@@ -27,6 +27,7 @@ SUSHI_IMAGES_DIR = os.path.join(IMAGES_DIR, "sushi")
 DRINK_IMAGES_DIR = os.path.join(IMAGES_DIR, "drinks")
 CUSTOMER_IMAGES_DIR = os.path.join(IMAGES_DIR, "customer")  # <--- 新增顾客图片目录
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
+SOUNDS_DIR = os.path.join(ASSETS_DIR, "sounds")  # 确保这个路径是正确的
 
 # --- 背景和通用UI图片文件名 ---
 START_BG_IMG = "start_bg.png"
@@ -73,6 +74,16 @@ SAKE_IMG_FILENAME = "sake.png"  # 示例，请替换为你的文件名
 BEER_IMG_FILENAME = "beer.png"
 MISO_SOUP_IMG_FILENAME = "miso_soup.png"
 
+# --- 背景音乐文件名 ---
+START_SCREEN_BGM = "start_bgm.mp3"
+GAME_RUNNING_BGM = "game_bgm.mp3"
+
+# --- 音量设置 ---
+MUSIC_VOLUME = 0.5  # 背景音乐音量 (0.0 到 1.0)
+SFX_VOLUME = 0.8   # 点击音效音量 (0.0 到 1.0)
+
+# --- 音效文件名 ---
+CLICK_SOUND_FILENAME = "click.wav"
 
 # --- 字体文件名和大小 ---
 CUSTOM_FONT_FILENAME = "s.ttf"
@@ -86,7 +97,7 @@ STATE_GAME_RUNNING = "game_running"
 STATE_GAME_OVER = "game_over"  # 新增：游戏结束状态
 
 # --- 游戏参数 ---
-GAME_DURATION_SECONDS = 90  # 游戏总时长
+GAME_DURATION_SECONDS = 10  # 游戏总时长
 
 # +++ 小费系统参数 +++
 TIP_PERFECT_ORDER = 20       # 订单全对的小费
@@ -240,5 +251,3 @@ ORDER_TIMER_ICON_SIZE = (30, 30)  # 订单计时器图标大小
 ORDER_TIMER_OFFSET_X = 5  # 订单计时器相对于订单气泡的位置X (可以调整)
 ORDER_TIMER_OFFSET_Y = ORDER_BUBBLE_SIZE[1] + 5  # 订单计时器在订单气泡下方的位置Y (可以调整)
 ORDER_TIMER_TEXT_COLOR = RED  # 订单倒计时文本颜色
-
-
