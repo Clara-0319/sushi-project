@@ -41,7 +41,6 @@ WIN_IMG_FILENAME = "win.png"               # 新增：胜利图片
 LOSE_IMG_FILENAME = "lose.png"             # 新增：失败图片
 
 # --- 食材容器和工作台图片文件名 ---
-# 请确保这些文件名与你放在 assets/images/ui/ 目录下的文件名完全一致
 RICE_CONTAINER_IMG_FILENAME = "rice_container.png"
 OCTOPUS_CONTAINER_IMG_FILENAME = "octopus_container.png"
 SCALLOP_CONTAINER_IMG_FILENAME = "scallop_container.png"
@@ -69,8 +68,8 @@ CUSTOMER_HAPPY_IMG_FILENAME = "customer_happy.gif"
 CUSTOMER_ANGRY_IMG_FILENAME = "customer_angry.gif"
 ORDER_BUBBLE_IMG_FILENAME = "order_bubble.png"
 
-# --- Drink Image Filenames (add these if you have them) ---
-SAKE_IMG_FILENAME = "sake.png"  # 示例，请替换为你的文件名
+# --- Drink Image Filenames ---
+SAKE_IMG_FILENAME = "sake.png"  
 BEER_IMG_FILENAME = "beer.png"
 MISO_SOUP_IMG_FILENAME = "miso_soup.png"
 
@@ -84,6 +83,9 @@ SFX_VOLUME = 0.8   # 点击音效音量 (0.0 到 1.0)
 
 # --- 音效文件名 ---
 CLICK_SOUND_FILENAME = "click.wav"
+TIME_OVER_SOUND_FILENAME = "time_over.wav"  # 新增
+WIN_SOUND_FILENAME = "win.wav"             # 新增
+LOSE_SOUND_FILENAME = "lose.wav"           # 新增
 
 # --- 字体文件名和大小 ---
 CUSTOM_FONT_FILENAME = "s.ttf"
@@ -97,7 +99,7 @@ STATE_GAME_RUNNING = "game_running"
 STATE_GAME_OVER = "game_over"  # 新增：游戏结束状态
 
 # --- 游戏参数 ---
-GAME_DURATION_SECONDS = 10  # 游戏总时长
+GAME_DURATION_SECONDS = 90  # 游戏总时长
 
 # +++ 小费系统参数 +++
 TIP_PERFECT_ORDER = 20       # 订单全对的小费
@@ -125,13 +127,13 @@ SUSHI_TYPES = {
     "tuna": {"name": "金枪鱼寿司", "image_file": TUNA_SUSHI_IMG_FILENAME}
 }
 
-DRINK_TYPES = {  # 饮品暂时不变，后续添加图片
+DRINK_TYPES = {  # 饮品
     "sake": {"name": "清酒", "image_file": SAKE_IMG_FILENAME},
     "beer": {"name": "啤酒", "image_file": BEER_IMG_FILENAME},
     "miso_soup": {"name": "味增汤", "image_file": MISO_SOUP_IMG_FILENAME}
 }
 
-# --- 游戏元素尺寸和位置 (这些可能需要根据你的图片实际大小进行调整) ---
+# --- 游戏元素尺寸和位置 ---
 INGREDIENT_AREA_Y = 500
 INGREDIENT_WIDTH = 75  # 容器图片的宽度
 INGREDIENT_HEIGHT = 90  # 容器图片的高度 (假设是方形，如果不是请调整)
@@ -150,7 +152,7 @@ CUTTING_BOARD_IMG_WIDTH = 216  # 假设菜板图片的宽度
 CUTTING_BOARD_IMG_HEIGHT = 180  # 假设菜板图片的高度
 CUTTING_BOARD_POS = (SCREEN_WIDTH // 2-CUTTING_BOARD_IMG_WIDTH // 2, 510)
 
-# 饭团和配料在菜板上的显示大小（增大）
+# 饭团和配料在菜板上的显示大小
 RICE_BALL_ON_BOARD_SIZE = (80, 67)
 TOPPING_ON_BOARD_SIZE = (80, 67)
 
@@ -160,7 +162,7 @@ CUSTOMER_SPOT_WIDTH = 150  # 每个顾客“桌子”的宽度
 CUSTOMER_SPOT_HEIGHT = 100  # 每个顾客“桌子”的高度
 CUSTOMER_SPOT_COLOR = (0, 0, 255, 100)  # 半透明蓝色作为占位符 (R, G, B, Alpha)
 
-# 顾客区位置 (需要根据你的屏幕布局仔细调整)
+# 顾客区位置 
 # 假设它们在屏幕上半部分，水平排列
 CUSTOMER_AREA_Y_OFFSET = 300  # 离屏幕顶部的距离
 CUSTOMER_AREA_PADDING = 180   # 顾客区之间的间隔以及与屏幕边缘的间隔
@@ -176,7 +178,7 @@ CUSTOMER_SPOT_POSITIONS = [
 ]
 
 # --- Customer Visuals & Order Bubble ---
-CUSTOMER_IMAGE_SIZE = (120, 180)  # 顾客图片显示大小 (需要根据你的GIF调整)
+CUSTOMER_IMAGE_SIZE = (120, 180)  # 顾客图片显示大小 
 # 顾客动画每帧的持续时间 (毫秒)，例如 100ms = 10 FPS for the GIF
 CUSTOMER_ANIMATION_FRAME_DURATION = 100
 # 新增：顾客图片底部相对于其桌子区顶部的垂直偏移量
@@ -210,11 +212,10 @@ DRINK_TYPES = {
     "miso_soup": {"name": "味增汤", "image_file": MISO_SOUP_IMG_FILENAME, "dispenser_img": MISO_DISPENSER_IMG_FILENAME, "dispenser_pos": MISO_DISPENSER_POS}
 }
 
-# --- 玩家手持物品的图片大小 (可以根据需要调整) ---
+# --- 玩家手持物品的图片大小---
 HELD_ITEM_IMAGE_SIZE = (70, 70) # 举例，你可以根据实际图片调整
 
 # --- Customer Visuals & Order Bubble ---
-# ... (其他配置保持不变) ...
 CUSTOMER_HAPPY_LEAVE_DELAY_MS = 3000  # 顾客开心后停留3秒
 CUSTOMER_ANGRY_LEAVE_DELAY_MS = 2000  # 顾客生气后停留2秒
 
@@ -222,7 +223,7 @@ CUSTOMER_ANGRY_LEAVE_DELAY_MS = 2000  # 顾客生气后停留2秒
 NEW_CUSTOMER_SPAWN_DELAY_MIN_MS = 2000  # 最小延迟2秒
 NEW_CUSTOMER_SPAWN_DELAY_MAX_MS = 6000  # 最大延迟6秒
 
-# (可选) 为顾客桌子不同状态定义颜色
+#为顾客桌子不同状态定义颜色
 CUSTOMER_SPOT_COLOR_EMPTY = (100, 100, 100, 100)  # 空位颜色
 CUSTOMER_SPOT_COLOR_WAITING = (0, 0, 255, 100)  # 等待颜色
 CUSTOMER_SPOT_COLOR_HAPPY = (0, 255, 0, 100)    # 开心颜色
