@@ -111,7 +111,6 @@ class DrinkDispenser(ClickableElement):
 
 
 class CuttingBoard:
-    # ... (保持不变) ...
     def __init__(self, position, size, image_filename):
         self.rect = pygame.Rect(position, size)
         self.image = load_scaled_image(image_filename, size, directory=UI_IMAGES_DIR) # 指定菜板图片目录
@@ -135,16 +134,16 @@ class CuttingBoard:
         if not self.has_rice:
             self.has_rice = True
             self.message = "米饭已放上"
-            print("菜板：米饭已添加")
+            #print("菜板：米饭已添加")
             return True
-        print("菜板：已经有米饭了")
+        #print("菜板：已经有米饭了")
         return False
 
     def add_topping(self, topping_key):
         if self.has_rice and not self.topping_key:
             self.topping_key = topping_key
             self.message = f"米饭 + {TOPPINGS[topping_key]['name']}"
-            print(f"菜板：{TOPPINGS[topping_key]['name']} 已添加")
+            #print(f"菜板：{TOPPINGS[topping_key]['name']} 已添加")
             return True
         elif not self.has_rice:
             print("菜板：请先放米饭")
@@ -164,7 +163,7 @@ class CuttingBoard:
         self.has_rice = False
         self.topping_key = None
         self.message = "菜板 (空)"
-        print("菜板：已清空")
+        #print("菜板：已清空")
 
     def draw(self, surface, font):
         if self.image:
@@ -227,7 +226,7 @@ class PlayerHand:
                 self.held_item_key = sushi_key
                 self.held_item_image = self.complete_sushi_images[sushi_key]
                 self.is_holding = True
-                print(f"玩家拿起: {SUSHI_TYPES.get(sushi_key, {}).get('name', sushi_key)}")
+                #print(f"玩家拿起: {SUSHI_TYPES.get(sushi_key, {}).get('name', sushi_key)}")
                 return True
             else:
                 print(f"错误：无法找到寿司 '{sushi_key}' 的完整图片。")
@@ -243,7 +242,7 @@ class PlayerHand:
                 self.held_item_key = drink_key
                 self.held_item_image = self.drink_images[drink_key]
                 self.is_holding = True
-                print(f"玩家拿起: {DRINK_TYPES.get(drink_key, {}).get('name', drink_key)}")
+                #print(f"玩家拿起: {DRINK_TYPES.get(drink_key, {}).get('name', drink_key)}")
                 return True
             else:
                 print(f"错误：无法找到饮品 '{drink_key}' 的手持图片。")
@@ -264,7 +263,7 @@ class PlayerHand:
         if self.is_holding:
             category = self.held_item_category
             key = self.held_item_key
-            print(f"玩家放下: {key} ({category})")
+            #print(f"玩家放下: {key} ({category})")
             self.held_item_category = None
             self.held_item_key = None
             self.held_item_image = None
