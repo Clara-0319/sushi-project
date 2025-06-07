@@ -39,6 +39,7 @@ ORDER_TIMER_ICON_FILENAME = "timer_icon.png"   # 顾客订单计时器图标
 TIP_ICON_FILENAME = "tip_icon.png"         # 新增：小费图标
 WIN_IMG_FILENAME = "win.png"               # 新增：胜利图片
 LOSE_IMG_FILENAME = "lose.png"             # 新增：失败图片
+RESET_BUTTON_IMG = "reset_button.png"  # 新增重置按钮图片
 
 # --- 食材容器和工作台图片文件名 ---
 RICE_CONTAINER_IMG_FILENAME = "rice_container.png"
@@ -99,13 +100,18 @@ STATE_GAME_RUNNING = "game_running"
 STATE_GAME_OVER = "game_over"  # 新增：游戏结束状态
 
 # --- 游戏参数 ---
-GAME_DURATION_SECONDS = 90  # 游戏总时长
+GAME_DURATION_SECONDS = 60  # 游戏总时长
+
+# --- 关卡系统参数 ---
+INITIAL_TARGET_TIPS = 100       # 第一关的目标小费
+TARGET_TIPS_INCREMENT = 50      # 每关增加的小费
+SAVE_FILE_NAME = "save.dat"     # 用于保存关卡数据的文件名
 
 # +++ 小费系统参数 +++
 TIP_PERFECT_ORDER = 20       # 订单全对的小费
 TIP_PARTIAL_ORDER = 10       # 订单对一半的小费
 TIP_WRONG_ORDER = 0          # 订单全错的小费 (或可以设为负数作为惩罚)
-TARGET_TIPS = 300            # 目标小费金额
+#TARGET_TIPS = 300            # 目标小费金额
 
 # --- 食材和饮品定义 (更新以包含图片信息) ---
 # RICE 定义现在也包含其在菜板上的图片
