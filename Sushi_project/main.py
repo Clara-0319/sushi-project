@@ -15,6 +15,28 @@ pygame.display.set_caption("我的寿司餐厅")
 clock = pygame.time.Clock()
 pygame.mixer.init() # 初始化混音器模块
 
+# --- 关卡存档读写函数 ---
+def save_level(level):
+    """将当前关卡数保存到文件"""
+    try:
+        with open(SAVE_FILE_NAME, "w") as f:
+            f.write(str(level))
+    except Exception as e:
+        print(f"无法保存关卡数据到 {SAVE_FILE_NAME}: {e}")
+
+
+def load_level():
+    """从文件加载关卡数，如果文件不存在或无效则返回1"""
+    if not os.path.exists(SAVE_FILE_NAME):
+        return 1
+    try:
+        with open(SAVE_FILE_NAME, "r") as f:
+            level = int(f.read().strip())
+            return level if level > 0 else 1
+    except (ValueError, IOError) as e:
+        print(f"无法读取关卡数据或数据无效，从第一关开始: {e}")
+        return 1
+
 # --- 加载资源  ---
 try:
     start_bg_path = os.path.join(BACKGROUND_IMAGES_DIR, START_BG_IMG)
@@ -24,7 +46,9 @@ try:
     start_button_path = os.path.join(UI_IMAGES_DIR, START_BUTTON_IMG)
     start_button_image = pygame.image.load(start_button_path).convert_alpha()
     start_button_rect = start_button_image.get_rect()
-
+    reset_button_image = load_scaled_image(RESET_BUTTON_IMG, start_button_image.get_size(), directory=UI_IMAGES_DIR)
+    reset_button_rect = reset_button_image.get_rect() if reset_button_image else pygame.Rect(0,0,0,0)
+    
     # 全局计时器图标
     global_timer_icon_image = load_scaled_image(
         GLOBAL_TIMER_ICON_FILENAME, TIMER_ICON_SIZE, directory=UI_IMAGES_DIR)
@@ -247,6 +271,8 @@ def get_customer_at_spot(spot_index):
 
 # --- 游戏状态和计时器变量 ---
 current_game_state = STATE_START_SCREEN
+current_level = load_level()  # +++ 游戏启动时加载关卡 +++
+current_target_tips = 0  # 当前关卡的目标金额，将在 reset_game_state 中设置
 game_start_time = 0  # 游戏开始的时刻 (pygame.time.get_ticks())
 remaining_time = GAME_DURATION_SECONDS  # 剩余时间（秒）
 total_tips = 0  # 新增：总小费
@@ -254,9 +280,13 @@ game_over_phase = ""  # 用于游戏结束时的阶段控制: "showing_times_up"
 game_over_transition_timer = 0  # 用于 "Time's Up" 显示后的延迟
 result_sound_played = False  # 确保胜利/失败音效只播放一次
 
-start_button_rect.centerx = SCREEN_WIDTH // 2
+# --- 按钮位置 ---
+start_button_rect.centerx = SCREEN_WIDTH // 4
 start_button_rect.centery = SCREEN_HEIGHT // 2 + 220
+reset_button_rect.centerx = 3*SCREEN_WIDTH // 4
+reset_button_rect.centery = SCREEN_HEIGHT // 2 + 220
 
+# --- BGM 函数 ---
 current_bgm = None  # 用于跟踪当前播放的BGM，避免重复加载
 
 
@@ -287,14 +317,23 @@ def stop_bgm():
     current_bgm = None
     print("背景音乐已停止。")
 
+# --- 游戏重置函数 (修改) ---
+
+
 def reset_game_state():
-    global game_start_time, remaining_time, total_tips, game_over_phase, game_over_transition_timer
+    """重置游戏到当前关卡的初始状态"""
+    global game_start_time, remaining_time, total_tips, game_over_phase, game_over_transition_timer, result_sound_played, current_target_tips
+
+    # +++ 根据当前关卡计算目标金额 +++
+    current_target_tips = INITIAL_TARGET_TIPS + \
+        (current_level - 1) * TARGET_TIPS_INCREMENT
+
     game_start_time = pygame.time.get_ticks()
     remaining_time = GAME_DURATION_SECONDS
     total_tips = 0
     game_over_phase = ""
     game_over_transition_timer = 0
-    result_sound_played = False  # 重置音效播放标志
+    result_sound_played = False
     player_h.drop_item()
     cutting_b.clear()
     current_ticks = pygame.time.get_ticks()
@@ -305,39 +344,46 @@ def reset_game_state():
         customer.sushi_received_key = None
         customer.drink_received_key = None
         customer.departure_timer_start = None
-        customer.current_animation_frame_index = 0  # 确保动画索引重置
-        customer.current_image = None  # 清空当前图像
-        customer.order_timer_start_ticks = None  # 重置订单计时器
+        customer.order_timer_start_ticks = None
         customer.order_remaining_seconds = ORDER_DURATION_SECONDS
+        customer.current_animation_frame_index = 0
+        customer.current_image = None
         last_customer_spawn_time[i] = current_ticks - \
             random.randint(0, NEW_CUSTOMER_SPAWN_DELAY_MAX_MS // 2)
-    print("游戏状态已重置")
-    play_bgm(GAME_RUNNING_BGM)  # 游戏开始时播放游戏BGM
+    play_bgm(GAME_RUNNING_BGM)
 
 
-# --- 游戏主循环 ---
+# --- 游戏主循环 (完整替换) ---
 play_bgm(START_SCREEN_BGM)
 running = True
 while running:
     current_time_ticks = pygame.time.get_ticks()
     mouse_pos = pygame.mouse.get_pos()
 
-    # 1. 事件处理 (Event Handling)
+    # 1. 事件处理
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
         if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:  # 鼠标左键
+            if event.button == 1:
                 if click_sound:
                     click_sound.play()
 
                 if current_game_state == STATE_START_SCREEN:
+                    # 点击 "开始" 按钮
                     if start_button_rect.collidepoint(mouse_pos):
+                        reset_game_state()
+                        current_game_state = STATE_GAME_RUNNING
+                    # +++ 点击 "重置" 按钮 +++
+                    elif reset_button_rect and reset_button_rect.collidepoint(mouse_pos):
+                        current_level = 1
+                        save_level(current_level)
                         reset_game_state()
                         current_game_state = STATE_GAME_RUNNING
 
                 elif current_game_state == STATE_GAME_RUNNING:
+                    # ... (游戏中的点击逻辑保持不变) ...
                     if player_h.is_holding:
                         served_to_customer_this_click = False
                         for i, spot_rect in enumerate(customer_spot_rects):
@@ -351,7 +397,7 @@ while running:
                                         total_tips += tip_from_customer
                                     served_to_customer_this_click = True
                                 break
-                    else:  # 玩家手上没东西
+                    else:
                         clicked_on_interactive = False
                         for element in interactive_elements:
                             if element.is_clicked(mouse_pos):
@@ -373,35 +419,30 @@ while running:
                     if game_over_phase == "showing_result":
                         current_game_state = STATE_START_SCREEN
                         play_bgm(START_SCREEN_BGM)
-                        result_sound_played = False  # 重置
+                        result_sound_played = False
 
-    # 2. 游戏逻辑更新 (Game Logic Updates) - 移出事件循环
+    # 2. 游戏逻辑更新
     if current_game_state == STATE_GAME_RUNNING:
-        # 更新全局游戏计时器
-        if game_start_time > 0:  # 确保游戏已开始计时
+        if game_start_time > 0:
             elapsed_seconds = (current_time_ticks - game_start_time) // 1000
             remaining_time = GAME_DURATION_SECONDS - elapsed_seconds
             if remaining_time <= 0:
                 remaining_time = 0
-                if current_game_state == STATE_GAME_RUNNING:  # 确保只在游戏进行中触发一次
+                if current_game_state == STATE_GAME_RUNNING:
                     current_game_state = STATE_GAME_OVER
                     game_over_phase = "showing_times_up"
                     game_over_transition_timer = current_time_ticks
                     stop_bgm()
                     if time_over_sound:
                         time_over_sound.play()
-                    print("时间到! 游戏结束。")
 
-        # 更新所有顾客 (包括动画、订单计时器、离开逻辑)
-        # 即使游戏刚刚结束 (remaining_time <= 0)，也可能需要更新一次顾客状态（比如让他们离开）
-        # 但新的顾客生成只应在 STATE_GAME_RUNNING 状态下
         for i, customer in enumerate(customers):
             if customer.state != "empty":
-                if customer.update():  # customer.update() 返回 True 表示顾客已离开
-                    if current_game_state == STATE_GAME_RUNNING:  # 只有游戏进行中才重置生成计时器
+                if customer.update():
+                    if current_game_state == STATE_GAME_RUNNING:
                         last_customer_spawn_time[i] = current_time_ticks
 
-        if current_game_state == STATE_GAME_RUNNING:  # 确保只在游戏运行时生成新顾客
+        if current_game_state == STATE_GAME_RUNNING:
             for i, customer in enumerate(customers):
                 if customer.state == "empty":
                     spawn_delay = random.randint(
@@ -415,31 +456,43 @@ while running:
             if current_time_ticks - game_over_transition_timer > TIMES_UP_DISPLAY_DURATION_MS:
                 game_over_phase = "showing_result"
                 if not result_sound_played:
-                    if total_tips >= TARGET_TIPS:
+                    # +++ 检查胜利条件并更新关卡 +++
+                    if total_tips >= current_target_tips:
                         if win_sound:
                             win_sound.play()
+                        current_level += 1  # 胜利，关卡+1
+                        save_level(current_level)  # 保存新关卡
                     else:
                         if lose_sound:
                             lose_sound.play()
+                        # 失败，关卡不变
                     result_sound_played = True
 
-    # 3. 绘制阶段 (Drawing)
-    screen.fill(WHITE)  # 清屏
+    # 3. 绘制阶段
+    screen.fill(WHITE)
 
     if current_game_state == STATE_START_SCREEN:
         screen.blit(start_background_image, (0, 0))
-        screen.blit(start_button_image, start_button_rect.topleft)
+        screen.blit(start_button_image, start_button_rect)
+        if reset_button_image:
+            screen.blit(reset_button_image, reset_button_rect)
+
+        # 在开始界面也显示当前关卡
+        level_text_start = custom_font.render(
+            f"当前挑战: 第 {current_level} 关", True, BLACK)
+        level_rect_start = level_text_start.get_rect(
+            center=(SCREEN_WIDTH // 2, start_button_rect.top+130))
+        screen.blit(level_text_start, level_rect_start)
 
     elif current_game_state == STATE_GAME_RUNNING or \
-            (current_game_state == STATE_GAME_OVER and game_over_phase == "showing_times_up"):  # 游戏结束时也绘制餐厅背景
+            (current_game_state == STATE_GAME_OVER and game_over_phase == "showing_times_up"):
         screen.blit(restaurant_background_image, (0, 0))
 
-        # 游戏元素绘制 (仅在游戏运行时，或者游戏结束但仍在显示游戏场景时)
         if current_game_state == STATE_GAME_RUNNING:
+            # ... (绘制游戏元素) ...
             for element in interactive_elements:
                 element.draw(screen, custom_font)
             cutting_b.draw(screen, custom_font)
-
             for i, spot_rect in enumerate(customer_spot_rects):
                 temp_surface = pygame.Surface(spot_rect.size, pygame.SRCALPHA)
                 customer = get_customer_at_spot(i)
@@ -455,34 +508,39 @@ while running:
                         color_to_fill = CUSTOMER_SPOT_COLOR_ANGRY
                 temp_surface.fill(color_to_fill)
                 screen.blit(temp_surface, spot_rect.topleft)
-
             for customer in customers:
                 customer.draw(screen)
-
             hud_pos = (20, SCREEN_HEIGHT - 50)
             player_h.draw(screen, mouse_pos,
                           font_for_hud=small_font, hud_position=hud_pos)
 
-        # HUD (计时器和小费) 在游戏运行和 "Time's Up" 阶段都显示
+        # HUD
         if global_timer_icon_image:
             screen.blit(global_timer_icon_image, TIMER_ICON_POS)
         minutes = max(0, remaining_time // 60)
         seconds = max(0, remaining_time % 60)
         timer_text_str = f"{minutes:02}:{seconds:02}"
         timer_surf = small_font.render(timer_text_str, True, BLACK)
-        timer_text_rect = timer_surf.get_rect(midleft=(TIMER_ICON_POS[0] + TIMER_ICON_SIZE[0] + TIMER_TEXT_OFFSET_X,
-                                                       TIMER_ICON_POS[1] + TIMER_ICON_SIZE[1] // 2))
+        timer_text_rect = timer_surf.get_rect(midleft=(
+            TIMER_ICON_POS[0] + TIMER_ICON_SIZE[0] + TIMER_TEXT_OFFSET_X, TIMER_ICON_POS[1] + TIMER_ICON_SIZE[1] // 2))
         screen.blit(timer_surf, timer_text_rect)
 
         if tip_icon_image:
             screen.blit(tip_icon_image, TIP_ICON_POS)
-        tip_text_str = f"{total_tips} / {TARGET_TIPS}"  # 即使游戏结束也显示最终小费
+        # +++ 使用动态目标金额 +++
+        tip_text_str = f"{total_tips} / {current_target_tips}"
         tip_surf = small_font.render(tip_text_str, True, GOLD)
-        tip_text_rect = tip_surf.get_rect(midleft=(TIP_ICON_POS[0] + TIP_ICON_SIZE[0] + TIP_TEXT_OFFSET_X,
-                                                   TIP_ICON_POS[1] + TIP_ICON_SIZE[1] // 2))
+        tip_text_rect = tip_surf.get_rect(midleft=(
+            TIP_ICON_POS[0] + TIP_ICON_SIZE[0] + TIP_TEXT_OFFSET_X, TIP_ICON_POS[1] + TIP_ICON_SIZE[1] // 2))
         screen.blit(tip_surf, tip_text_rect)
 
-        # 如果是 "Time's Up" 阶段，叠加显示 "Time's Up" 图片
+        # +++ 绘制当前关卡数 +++
+        level_text_surf = custom_font.render(
+            f"关卡: {current_level}", True, BLACK)
+        level_text_rect = level_text_surf.get_rect(
+            center=(SCREEN_WIDTH // 2, 40))
+        screen.blit(level_text_surf, level_text_rect)
+
         if current_game_state == STATE_GAME_OVER and game_over_phase == "showing_times_up":
             if times_up_image and times_up_rect:
                 screen.blit(times_up_image, times_up_rect)
@@ -492,19 +550,15 @@ while running:
             screen.blit(wait_text, wait_rect)
 
     elif current_game_state == STATE_GAME_OVER and game_over_phase == "showing_result":
-        screen.blit(restaurant_background_image, (0, 0))  # 结果界面也用餐厅背景
-        result_image_to_blit = None
-        result_rect_to_use = None
-        message = ""
+        screen.blit(restaurant_background_image, (0, 0))
+        result_image_to_blit, result_rect_to_use, message = None, None, ""
 
-        if total_tips >= TARGET_TIPS:
-            result_image_to_blit = win_image
-            result_rect_to_use = win_rect
-            message = f"恭喜! 你获得了 {total_tips} 小费! 点击继续."
+        if total_tips >= current_target_tips:
+            result_image_to_blit, result_rect_to_use = win_image, win_rect
+            message = f"胜利! 进入第 {current_level} 关! 点击继续."
         else:
-            result_image_to_blit = lose_image
-            result_rect_to_use = lose_rect
-            message = f"差一点! 你获得了 {total_tips} 小费. 点击重试."
+            result_image_to_blit, result_rect_to_use = lose_image, lose_rect
+            message = f"失败! 再挑战一次第 {current_level} 关. 点击重试."
 
         if result_image_to_blit and result_rect_to_use:
             screen.blit(result_image_to_blit, result_rect_to_use)
@@ -512,17 +566,15 @@ while running:
             msg_rect = msg_surf.get_rect(
                 center=(SCREEN_WIDTH // 2, result_rect_to_use.bottom + 40))
             screen.blit(msg_surf, msg_rect)
-        else:  # Fallback if images failed to load
+        else:
             msg_surf = custom_font.render(message, True, BLACK)
             msg_rect = msg_surf.get_rect(
                 center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100))
             screen.blit(msg_surf, msg_rect)
 
-    # 4. 更新显示
     pygame.display.flip()
-
-    # 5. 控制帧率
     clock.tick(FPS)
 
 pygame.quit()
 sys.exit()
+
